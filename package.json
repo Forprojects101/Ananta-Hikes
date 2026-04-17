@@ -1,0 +1,48 @@
+{
+  "name": "hike-booking-system",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -H 0.0.0.0 -p 3000",
+    "dev:network": "next dev -H 0.0.0.0 -p 3000",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^3.3.4",
+    "@react-three/drei": "^9.122.0",
+    "@react-three/fiber": "^8.18.0",
+    "@supabase/supabase-js": "^2.38.0",
+    "cloudinary": "^2.9.0",
+    "clsx": "^2.0.0",
+    "framer-motion": "^10.18.0",
+    "gsap": "^3.12.2",
+    "keen-slider": "^6.8.6",
+    "lucide-react": "latest",
+    "next": "^14",
+    "next-auth": "^4.24.5",
+    "next-cloudinary": "^6.17.5",
+    "nodemailer": "^8.0.5",
+    "react": "^18",
+    "react-dom": "^18",
+    "react-easy-crop": "^5.5.7",
+    "react-hook-form": "^7.48.0",
+    "tailwind-merge": "^2.2.0",
+    "tailwindcss": "^3.3.0",
+    "three": "^0.160.1",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/nodemailer": "^6.4.14",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "autoprefixer": "^10",
+    "eslint": "^8",
+    "eslint-config-next": "^14",
+    "postcss": "^8",
+    "typescript": "^5"
+  }
+}
