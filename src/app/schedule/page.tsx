@@ -41,6 +41,7 @@ type BookingSchedule = {
 };
 
 export default function SchedulePage() {
+  const { isAuthenticated } = useAuth();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [bookings, setBookings] = useState<BookingSchedule[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -208,7 +209,13 @@ export default function SchedulePage() {
                         </div>
                       </div>
                       <button
-                        onClick={() => setSelectedBooking(booking)}
+                        onClick={() => {
+                          if (isAuthenticated) {
+                            setSelectedBooking(booking);
+                          } else {
+                            setIsLoginModalOpen(true);
+                          }
+                        }}
                         className="flex items-center gap-2 px-6 h-12 rounded-2xl bg-slate-900 text-white font-black text-xs uppercase tracking-widest hover:bg-primary-600 hover:shadow-xl transition-all active:scale-95"
                       >
                         Join Trip <ArrowRight size={16} />
@@ -239,12 +246,21 @@ export default function SchedulePage() {
             <p className="text-lg md:text-xl text-white/80 font-medium mb-10 max-w-2xl mx-auto relative z-10">
               Don&apos;t wait for the perfect moment. Take the lead and book your own custom adventure today.
             </p>
-            <Link
-              href="/booking"
-              className="inline-flex h-14 items-center gap-3 px-10 bg-white text-slate-900 rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all active:scale-95 relative z-10"
-            >
-              Start Your Journey <ArrowRight size={18} />
-            </Link>
+            {isAuthenticated ? (
+              <Link
+                href="/booking"
+                className="inline-flex h-14 items-center gap-3 px-10 bg-white text-slate-900 rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all active:scale-95 relative z-10"
+              >
+                Start Your Journey <ArrowRight size={18} />
+              </Link>
+            ) : (
+              <button
+                onClick={() => setIsLoginModalOpen(true)}
+                className="inline-flex h-14 items-center gap-3 px-10 bg-white text-slate-900 rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all active:scale-95 relative z-10"
+              >
+                Start Your Journey <ArrowRight size={18} />
+              </button>
+            )}
           </div>
         </div>
       </section>
