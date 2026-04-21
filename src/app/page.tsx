@@ -179,7 +179,7 @@ export default function Home() {
   const [landingMountains, setLandingMountains] = useState<MountainCard[]>([]);
   const [landingTestimonials, setLandingTestimonials] = useState<TestimonialCard[]>([]);
   const [sectionHeadings, setSectionHeadings] = useState({
-    heroSubtitle: "Discover curated hikes, transparent pricing, and effortless booking. Pick a trail, choose your pace, and get moving.",
+    heroSubtitle: "Find your next hike with clear pricing and smooth booking. Choose your trail, set your pace, and start your adventure.",
     mountainSelectionHeading: "Choose a mountain that matches your pack",
     testimonialsHeading: "What hikers say"
   });
@@ -232,7 +232,13 @@ export default function Home() {
           const settings = landingData.contentSettings.reduce((acc: any, curr: any) => {
             if (curr.key === "mountain_selection_heading") acc.mountainSelectionHeading = curr.value;
             if (curr.key === "testimonials_heading") acc.testimonialsHeading = curr.value;
-            if (curr.key === "hero_subtitle") acc.heroSubtitle = curr.value;
+            if (curr.key === "hero_subtitle") {
+              // Ensure the full version of the default marketing text is used if the DB has the partial version
+              const defaultText = "Find your next hike with clear pricing and smooth booking. Choose your trail, set your pace, and start your adventure.";
+              acc.heroSubtitle = (curr.value === "Find your next hike with clear pricing and smooth booking.")
+                ? defaultText
+                : curr.value;
+            }
             return acc;
           }, {});
 
@@ -342,13 +348,17 @@ export default function Home() {
   return (
     <main className="overflow-x-hidden">
       <Header onLoginClick={openLoginModal} />
-      <HeroSection subtitle={sectionHeadings.heroSubtitle} />
+      <HeroSection subtitle={sectionHeadings.heroSubtitle} onLoginClick={openLoginModal} />
       <FeaturesSection />
-      <MountainsSection mountains={landingMountains} heading={sectionHeadings.mountainSelectionHeading} />
+      <MountainsSection
+        mountains={landingMountains}
+        heading={sectionHeadings.mountainSelectionHeading}
+        onLoginClick={openLoginModal}
+      />
       <TourGuideSection />
       <GroupPhotosSection />
       <TestimonialSection heading={sectionHeadings.testimonialsHeading} testimonials={landingTestimonials} />
-      <CTASection onSignupClick={openSignupModal} />
+      <CTASection onLoginClick={openLoginModal} />
       <Footer />
       {isAuthModalOpen && (
         <AuthModal
@@ -365,6 +375,7 @@ export default function Home() {
           setShowPromoPopup(false);
           localStorage.setItem('promo_dismissed_at', Date.now().toString());
         }}
+        onLoginClick={openLoginModal}
       />
     </main>
   );
@@ -372,9 +383,13 @@ export default function Home() {
 
 function HeroSection({
   subtitle,
+  onLoginClick,
 }: {
   subtitle: string;
+  onLoginClick: () => void;
 }) {
+  const { isAuthenticated } = useAuth();
+
   const [typedWord, setTypedWord] = useState("");
   const [wordIndex, setWordIndex] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -446,9 +461,18 @@ function HeroSection({
           </p>
 
           <div className="mt-12 flex flex-col gap-4 sm:flex-row">
-            <Link href="/booking" className="inline-flex items-center justify-center gap-2 rounded-full bg-primary-600 px-6 md:px-8 py-3 md:py-4 text-sm md:text-base font-semibold text-white shadow-xl shadow-primary-600/20 transition hover:-translate-y-0.5 hover:bg-primary-700 w-full sm:w-fit flex-shrink-0">
-              Start Booking <ArrowRight size={18} />
-            </Link>
+            {isAuthenticated ? (
+              <Link href="/booking" className="inline-flex items-center justify-center gap-2 rounded-full bg-primary-600 px-6 md:px-8 py-3 md:py-4 text-sm md:text-base font-semibold text-white shadow-xl shadow-primary-600/20 transition hover:-translate-y-0.5 hover:bg-primary-700 w-full sm:w-fit flex-shrink-0">
+                Start Booking <ArrowRight size={18} />
+              </Link>
+            ) : (
+              <button
+                onClick={onLoginClick}
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-primary-600 px-6 md:px-8 py-3 md:py-4 text-sm md:text-base font-semibold text-white shadow-xl shadow-primary-600/20 transition hover:-translate-y-0.5 hover:bg-primary-700 w-full sm:w-fit flex-shrink-0"
+              >
+                Start Booking <ArrowRight size={18} />
+              </button>
+            )}
           </div>
         </div>
 
@@ -494,10 +518,14 @@ function FeaturesSection() {
 function MountainsSection({
   mountains,
   heading,
+  onLoginClick,
 }: {
   mountains: MountainCard[];
   heading: string;
+  onLoginClick: () => void;
 }) {
+  const { isAuthenticated } = useAuth();
+
   const duplicateItems = (items: MountainCard[]) => {
     if (items.length === 0) return [];
     // We need enough items to cover the screen width multiple times for a smooth loop
@@ -554,9 +582,18 @@ function MountainsSection({
         </div>
 
         <div className="mt-auto flex items-center justify-center pt-5 border-t border-gray-50">
-          <Link href={`/booking?mountain=${mountain.id}`} className="inline-flex h-11 items-center gap-2 rounded-2xl bg-slate-900 px-5 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-primary-600 hover:shadow-xl active:scale-95">
-            Book Now <ArrowRight size={14} />
-          </Link>
+          {isAuthenticated ? (
+            <Link href={`/booking?mountain=${mountain.id}`} className="inline-flex h-11 items-center gap-2 rounded-2xl bg-slate-900 px-5 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-primary-600 hover:shadow-xl active:scale-95">
+              Book Now <ArrowRight size={14} />
+            </Link>
+          ) : (
+            <button
+              onClick={onLoginClick}
+              className="inline-flex h-11 items-center gap-2 rounded-2xl bg-slate-900 px-5 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-primary-600 hover:shadow-xl active:scale-95"
+            >
+              Book Now <ArrowRight size={14} />
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -934,10 +971,11 @@ function TestimonialSection({
 }
 
 function CTASection({
-  onSignupClick,
+  onLoginClick,
 }: {
-  onSignupClick: () => void;
+  onLoginClick: () => void;
 }) {
+
   const { isAuthenticated } = useAuth();
 
   return (
@@ -959,7 +997,7 @@ function CTASection({
               Book Now <ArrowRight size={18} />
             </Link>
           ) : (
-            <button onClick={onSignupClick} className="mt-6 md:mt-8 inline-flex items-center gap-2 rounded-full bg-white px-6 md:px-8 py-3 md:py-4 text-sm md:text-base font-bold text-primary-700 shadow-xl transition hover:-translate-y-0.5 hover:bg-gray-50">
+            <button onClick={onLoginClick} className="mt-6 md:mt-8 inline-flex items-center gap-2 rounded-full bg-white px-6 md:px-8 py-3 md:py-4 text-sm md:text-base font-bold text-primary-700 shadow-xl transition hover:-translate-y-0.5 hover:bg-gray-50">
               Login to Book <ArrowRight size={18} />
             </button>
           )}
@@ -972,13 +1010,17 @@ function CTASection({
 function PromoPopup({
   promotion,
   isOpen,
-  onClose
+  onClose,
+  onLoginClick
 }: {
   promotion: any;
   isOpen: boolean;
   onClose: () => void;
+  onLoginClick: () => void;
 }) {
+  const { isAuthenticated } = useAuth();
   const [shouldRender, setShouldRender] = useState(false);
+
   const [isAnimating, setIsAnimating] = useState(false);
 
   useEffect(() => {
@@ -1029,13 +1071,25 @@ function PromoPopup({
             {promotion.description}
           </p>
           <div className="mt-8 flex flex-col gap-3">
-            <Link
-              href={promotion.link_url || "/booking"}
-              onClick={onClose}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary-600 py-4 text-xs font-black uppercase tracking-widest text-white shadow-xl shadow-primary-500/20 transition hover:-translate-y-0.5 hover:bg-primary-700 active:scale-95"
-            >
-              Discover More <ArrowRight size={16} />
-            </Link>
+            {isAuthenticated ? (
+              <Link
+                href={promotion.link_url || "/booking"}
+                onClick={onClose}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary-600 py-4 text-xs font-black uppercase tracking-widest text-white shadow-xl shadow-primary-500/20 transition hover:-translate-y-0.5 hover:bg-primary-700 active:scale-95"
+              >
+                Discover More <ArrowRight size={16} />
+              </Link>
+            ) : (
+              <button
+                onClick={() => {
+                  onClose();
+                  onLoginClick();
+                }}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary-600 py-4 text-xs font-black uppercase tracking-widest text-white shadow-xl shadow-primary-500/20 transition hover:-translate-y-0.5 hover:bg-primary-700 active:scale-95"
+              >
+                Discover More <ArrowRight size={16} />
+              </button>
+            )}
             <button
               onClick={onClose}
               className="w-full py-2 text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-gray-600 transition"
