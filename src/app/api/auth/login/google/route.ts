@@ -1,36 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import { hashPassword, isValidEmailDomain } from "@/lib/auth";
+import crypto from "crypto";
+import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { 
+  signAccessToken, 
+  generateRefreshToken, 
+  setRefreshTokenCookie,
+  hashToken,
+  hashPassword,
+  insertRefreshToken
+} from "@/lib/auth-secure";
 
-function getSupabaseServerClient() {
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!serviceRoleKey) {
-    throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set");
-  }
-
-  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceRoleKey);
-}
-
-function mapUser(row: Record<string, any>) {
-  // Handle both array and object forms of roles relationship
-  const rolesData = Array.isArray(row.roles) && row.roles[0] ? row.roles[0] : row.roles;
-  
-  return {
-    id: row.id,
-    email: row.email,
-    fullName: row.full_name,
-    phone: row.phone,
-    profileImageUrl: row.profile_image_url,
-    emailVerified: row.email_verified,
-    verifiedAt: row.verified_at,
-    roleId: row.role_id,
-    role: rolesData || undefined,
-    status: row.status,
-    lastLogin: row.last_login,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
-}
+const REFRESH_TOKEN_EXPIRY_DAYS = 30;
 
 export async function POST(request: NextRequest) {
   try {
@@ -40,136 +20,138 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: "Email is required" }, { status: 400 });
     }
 
-    if (!isValidEmailDomain(email)) {
-      return NextResponse.json(
-        { message: "Only @gmail.com and @yahoo.com emails are allowed" },
-        { status: 400 }
-      );
-    }
+    const supabase = getSupabaseAdmin();
 
-    const supabase = getSupabaseServerClient();
-
-    const selectFields =
-      "id,email,full_name,phone,profile_image_url,email_verified,verified_at,role_id,status,last_login,created_at,updated_at,roles(*)";
-
-    const { data: existingUser, error: findError } = await supabase
+    // 1. Check if user exists
+    const { data: user, error: findError } = await supabase
       .from("users")
-      .select(selectFields)
+      .select("id, email, full_name, profile_image_url, status, email_verified, roles(id, name)")
       .eq("email", email)
       .maybeSingle();
 
-    const nowIso = new Date().toISOString();
-    let userRow = existingUser;
-
     if (findError) {
-      console.error("Google login user lookup error:", findError);
-      return NextResponse.json({ message: "Google login failed" }, { status: 500 });
+      console.error("❌ [Google Login] Find error:", findError);
+      return NextResponse.json({ message: "Database lookup failed" }, { status: 500 });
     }
 
-    if (!userRow) {
+    let currentUser = user;
+
+    if (!user) {
+      // 2. Create new user for first-time Google sign-in
       const { data: hikerRole, error: roleError } = await supabase
         .from("roles")
-        .select("id")
+        .select("id, name")
         .eq("name", "Hiker")
         .single();
 
-      let roleId = hikerRole?.id;
-
-      if (roleError || !hikerRole?.id) {
-        const { data: createdRole, error: createRoleError } = await supabase
-          .from("roles")
-          .insert({
-            name: "Hiker",
-            description: "Regular user who books hikes",
-            hierarchy_level: 1,
-            can_manage_users: false,
-            can_manage_content: false,
-            can_manage_mountains: false,
-            can_assign_guides: false,
-            can_approve_bookings: false,
-            can_override_bookings: false,
-            can_access_logs: false,
-            can_access_settings: false,
-            can_access_admin: false,
-            is_active: true,
-          })
-          .select("id")
-          .single();
-
-        if (createRoleError || !createdRole?.id) {
-          return NextResponse.json(
-            { message: "Default role not found. Run SQL schema setup first." },
-            { status: 500 }
-          );
-        }
-
-        roleId = createdRole.id;
+      if (roleError || !hikerRole) {
+        console.error("❌ [Google Login] Hiker role not found:", roleError);
+        return NextResponse.json({ message: "Default role not configured" }, { status: 500 });
       }
 
-      const { data: insertedUser, error: insertError } = await supabase
+      // Generate a random, non-guessable password hash so the NOT NULL DB
+      // constraint is satisfied. The plaintext is never stored and can never
+      // be used to log in — Google users must always authenticate via OAuth.
+      const randomPassword = crypto.randomBytes(32).toString("hex");
+      const placeholderHash = await hashPassword(randomPassword);
+
+      const { data: newUser, error: insertError } = await supabase
         .from("users")
         .insert({
           email,
-          password_hash: hashPassword(crypto.randomUUID()),
+          password_hash: placeholderHash,
           full_name: fullName || email.split("@")[0],
           profile_image_url: avatarUrl || null,
           email_verified: true,
-          verified_at: nowIso,
-          role_id: roleId,
+          verified_at: new Date().toISOString(),
+          role_id: hikerRole.id,
           status: "active",
-          last_login: nowIso,
         })
-        .select(selectFields)
+        .select("id, email, full_name, profile_image_url, status, email_verified, roles(id, name)")
         .single();
 
-      if (insertError || !insertedUser) {
-        console.error("Google login insert error:", insertError);
-        return NextResponse.json({ message: "Failed to create Google account" }, { status: 500 });
+      if (insertError) {
+        console.error("❌ [Google Login] Insert error:", insertError);
+        return NextResponse.json({ message: "Failed to create user account" }, { status: 500 });
       }
-
-      userRow = insertedUser;
+      currentUser = newUser;
+      console.log(`✅ [Google Login] New user created: ${email}`);
     } else {
-      const updates: Record<string, any> = { last_login: nowIso };
-
-      if (!userRow.email_verified) {
-        updates.email_verified = true;
-        updates.verified_at = nowIso;
-      }
-
-      if (!userRow.full_name && fullName) {
-        updates.full_name = fullName;
-      }
-
-      if (!userRow.profile_image_url && avatarUrl) {
-        updates.profile_image_url = avatarUrl;
-      }
-
+      // 3. Update existing user's avatar and login timestamp
+      const updates: Record<string, unknown> = { 
+        last_login: new Date().toISOString() 
+      };
+      if (avatarUrl) updates.profile_image_url = avatarUrl;
+      if (fullName && !user.full_name) updates.full_name = fullName;
+      
       const { data: updatedUser, error: updateError } = await supabase
         .from("users")
         .update(updates)
-        .eq("id", userRow.id)
-        .select(selectFields)
+        .eq("id", user.id)
+        .select("id, email, full_name, profile_image_url, status, email_verified, roles(id, name)")
         .single();
-
-      if (updateError || !updatedUser) {
-        console.error("Google login update error:", updateError);
-        return NextResponse.json({ message: "Failed to update account" }, { status: 500 });
-      }
-
-      userRow = updatedUser;
+      
+      currentUser = updateError ? user : updatedUser;
+      console.log(`✅ [Google Login] Existing user logged in: ${email}`);
     }
 
-    const user = mapUser(userRow);
+    if (!currentUser) {
+      return NextResponse.json({ message: "Failed to resolve user account" }, { status: 500 });
+    }
 
-    const response = NextResponse.json(user, { status: 200 });
-    response.cookies.set("auth-token", user.id, {
-      httpOnly: true,
-      maxAge: 60 * 60 * 24 * 7,
+    if (currentUser.status !== "active") {
+      return NextResponse.json({ message: "Account is inactive" }, { status: 403 });
+    }
+
+    // 4. Generate Tokens
+    const roleObj = Array.isArray(currentUser.roles) ? currentUser.roles[0] : currentUser.roles;
+    const roleName = roleObj?.name || "Hiker";
+
+    const accessToken = signAccessToken({ userId: currentUser.id, role: roleName });
+    const refreshToken = generateRefreshToken();
+    const expiresAt = new Date(
+      Date.now() + REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000
+    ).toISOString();
+
+    // 5. Store hashed refresh token in DB (device columns optional)
+    const { error: rtError } = await insertRefreshToken(supabase, {
+      userId: currentUser.id,
+      tokenHash: hashToken(refreshToken),
+      expiresAt: expiresAt,
+      deviceInfo: request.headers.get("user-agent") || undefined,
+      ipAddress: request.headers.get("x-forwarded-for") || 
+                 request.headers.get("x-real-ip") || undefined,
     });
 
+    if (rtError) {
+      console.error("❌ [Google Login] Refresh token storage error:", rtError);
+      return NextResponse.json({ message: "Failed to establish session" }, { status: 500 });
+    }
+
+    // 6. Return full user profile for client hydration
+    const response = NextResponse.json({
+      accessToken,
+      user: {
+        id: currentUser.id,
+        email: currentUser.email,
+        fullName: currentUser.full_name,
+        profileImageUrl: avatarUrl || currentUser.profile_image_url,
+        emailVerified: currentUser.email_verified,
+        role: roleName,
+        roleId: roleObj?.id,
+        status: currentUser.status,
+      }
+    });
+
+    setRefreshTokenCookie(response, refreshToken);
     return response;
-  } catch (error) {
-    console.error("Google login error:", error);
-    return NextResponse.json({ message: "Google login failed" }, { status: 500 });
+
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("❌ [Google Login] Unexpected error:", message);
+    return NextResponse.json({ 
+      message: "Google login failed",
+      details: process.env.NODE_ENV === "development" ? message : undefined
+    }, { status: 500 });
   }
 }

@@ -55,10 +55,11 @@ export default function PackageDetails() {
               type="number"
               min="1"
               max="20"
-              value={bookingPackage.participants}
-              onChange={(e) =>
-                updatePackage({ participants: parseInt(e.target.value) || 1 })
-              }
+              value={bookingPackage.participants || ""}
+              onChange={(e) => {
+                const val = e.target.value;
+                updatePackage({ participants: val === "" ? ("" as any) : parseInt(val) });
+              }}
               className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-primary-600"
             />
             {errors.participants && (

@@ -28,84 +28,101 @@ export async function sendVerificationEmail(
   code: string
 ): Promise<void> {
   try {
+
+    // Done Email Verification
+
     const htmlTemplate = `
 <!DOCTYPE html>
 <html>
+
 <head>
   <meta charset="UTF-8" />
   <style>
     body {
       margin: 0;
       padding: 0;
-      background-color: #f4f6f8;
+    
       font-family: Arial, sans-serif;
-      color: #333;
+      color: #334155;
     }
 
     .wrapper {
       width: 100%;
-      padding: 20px 0;
+      padding: 30px 0;
     }
 
     .container {
       max-width: 600px;
       margin: 0 auto;
       background: #ffffff;
-      border-radius: 10px;
+      border-radius: 14px;
       overflow: hidden;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
     }
 
     .header {
-      background: #111827;
+      background: #0f172a;
       text-align: center;
-      padding: 20px;
+      padding: 28px 20px;
     }
 
     .logo {
-      width: 100px;
+      width: 80px;
+      border-radius: 14px;
       margin-bottom: 10px;
     }
 
     .header-title {
       color: #ffffff;
       margin: 0;
-      font-size: 20px;
+      font-size: 18px;
     }
 
     .sub-title {
-      color: #d1d5db;
-      font-size: 13px;
+      color: #94a3b8;
+      font-size: 12px;
       margin-top: 5px;
     }
 
     .content {
-      padding: 30px;
+      padding: 32px 28px;
     }
 
     .content p {
       font-size: 14px;
       line-height: 1.6;
-      margin: 10px 0;
+      margin: 12px 0;
+    }
+
+    .code-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+      margin: 24px 0;
+    }
+
+    .code-label {
+      font-size: 11px;
+      color: #64748b;
+      letter-spacing: 1px;
+      margin-bottom: 6px;
     }
 
     .code {
-      font-size: 28px;
+      font-size: 30px;
       font-weight: bold;
       color: #16a34a;
-      text-align: center;
       letter-spacing: 6px;
-      margin: 25px 0;
-      padding: 15px;
-      background: #f0fdf4;
-      border-radius: 8px;
     }
 
     .footer {
-      background: #f9fafb;
-      padding: 20px;
+      background: #f1f5f9;
+      padding: 18px;
       text-align: center;
       font-size: 12px;
-      color: #6b7280;
+      color: #64748b;
     }
   </style>
 </head>
@@ -114,9 +131,12 @@ export async function sendVerificationEmail(
   <div class="wrapper">
     <div class="container">
 
-      <!-- Header with Logo -->
+      <!-- Header -->
       <div class="header">
-        <img src="https://res.cloudinary.com/dunjk3dzt/image/upload/v1776183431/logo_ox4gir.png" alt="Logo" class="logo"  style="width:100px; border-radius:10px;" />
+        <img src="https://res.cloudinary.com/dunjk3dzt/image/upload/v1776183431/logo_ox4gir.png" alt="Logo"
+          class="logo" />
+        <h2 class="header-title">Email Verification</h2>
+        <p class="sub-title">Confirm your account</p>
       </div>
 
       <!-- Content -->
@@ -124,15 +144,19 @@ export async function sendVerificationEmail(
         <p>Hello,</p>
 
         <p>
-          Thank you for creating an account. Please use the verification code below to confirm your email address.
+          Please use the code below to verify your email address.
         </p>
 
-        <div class="code">${code}</div>
+        <!-- Code -->
+        <div class="code-box">
+          <div class="code-label">VERIFICATION CODE</div>
+          <div class="code">${code}</div>
+        </div>
 
         <p>This code is valid for 5 minutes.</p>
 
         <p>
-          If you did not request this, you can safely ignore this email.
+          If you did not request this, you can ignore this email.
         </p>
       </div>
 
@@ -144,13 +168,14 @@ export async function sendVerificationEmail(
     </div>
   </div>
 </body>
+
 </html>
     `;
 
     const mailOptions = {
       from: `${process.env.BREVO_FROM_NAME} <${process.env.BREVO_FROM_EMAIL}>`,
       to: email,
-      subject: "Email Verification Code - Hike Booking System",
+      subject: " 𝐄𝐦𝐚𝐢𝐥 𝐕𝐞𝐫𝐢𝐟𝐢𝐜𝐚𝐭𝐢𝐨𝐧 𝐂𝐨𝐝𝐞",
       html: htmlTemplate,
       text: `Your verification code is: ${code}\n\nThis code will expire in 5 minutes.`,
     };
@@ -172,99 +197,130 @@ export async function sendBookingConfirmation(
     bookingId: string;
     mountainName: string;
     hikeType: string;
+    addOns: string;
     date: string;
     participants: number;
     totalPrice: number;
   }
+
+  // Done Booking Confirm 
+
 ): Promise<void> {
   try {
     const htmlTemplate = `
-     <!DOCTYPE html>
+<!DOCTYPE html>
 <html>
+
 <head>
   <meta charset="UTF-8" />
 </head>
 
-<body style="margin:0; padding:0; background:#f4f6f8; font-family:Arial, sans-serif;">
+<body style="margin:0; padding:0; font-family:Arial, sans-serif;">
 
-  <table width="100%" cellpadding="0" cellspacing="0" style="padding:20px 0;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="padding:30px 0;">
     <tr>
       <td align="center">
 
         <!-- Container -->
-        <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff; border-radius:10px; overflow:hidden;">
+        <table width="600" cellpadding="0" cellspacing="0"
+          style="background:#ffffff; border-radius:14px; overflow:hidden; box-shadow:0 8px 30px rgba(0,0,0,0.06);">
 
           <!-- Header -->
           <tr>
-            <td align="center" style="background:#111827; padding:20px;">
-              <img src="https://res.cloudinary.com/dunjk3dzt/image/upload/v1776183431/logo_ox4gir.png"
-                   alt="Logo"
-                   style="width:90px; border-radius:12px; margin-bottom:10px;" />
-              <h2 style="color:#ffffff; margin:0;">Booking Confirmed</h2>
+            <td align="center" style="background:#0f172a; padding:28px 20px;">
+              <img src="https://res.cloudinary.com/dunjk3dzt/image/upload/v1776183431/logo_ox4gir.png" alt="Logo"
+                style="width:80px; border-radius:14px; margin-bottom:12px;" />
+              <h2 style="color:#ffffff; margin:0; font-size:20px; letter-spacing:0.5px;">
+                Booking Confirmed
+              </h2>
+              <p style="color:#94a3b8; font-size:12px; margin-top:6px;">
+                Your adventure starts here
+              </p>
             </td>
           </tr>
 
           <!-- Content -->
           <tr>
-            <td style="padding:30px; color:#333;">
+            <td style="padding:32px 28px; color:#334155;">
 
-              <p style="margin:0 0 15px 0; font-size:14px;">
-                Thank you for booking with Ananta Hikes. Your reservation has been successfully confirmed.
+              <p style="margin:0 0 16px 0; font-size:14px; line-height:1.6;">
+                Thank you for booking with <strong>Ananta Hikes</strong>. Your reservation is confirmed.
               </p>
+              <p style="margin:0 0 16px 0; font-size:13px; line-height:1.6; color:#64748b;">
+                You will receive a notification once your booking is approved.
+              </p>
+              <!-- Booking Card -->
+              <table width="100%" cellpadding="0" cellspacing="0"
+                style="background:#f8fafc; border-radius:12px; padding:20px; margin:24px 0; border:1px solid #e2e8f0;">
 
-              <!-- Booking Box -->
-              <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb; border-radius:8px; padding:15px; margin:20px 0;">
-
+                <!-- Reference -->
                 <tr>
-                  <td style="font-size:12px; color:#6b7280; padding-bottom:10px;">
+                  <td style="font-size:11px; color:#64748b; letter-spacing:1px; padding-bottom:6px; text-align:center;">
                     BOOKING REFERENCE
                   </td>
                 </tr>
 
                 <tr>
-                  <td style="font-size:18px; font-weight:bold; color:#16a34a; padding-bottom:15px;">
+                  <td style="font-size:20px; font-weight:bold; color:#16a34a; padding-bottom:18px; text-align:center;">
                     ${bookingData.bookingId}
                   </td>
                 </tr>
 
-                <!-- Details -->
+                <!-- Divider -->
                 <tr>
-                  <td>
+                  <td style="border-top:1px solid #e2e8f0; padding-top:14px;">
+
+                    <!-- Details -->
                     <table width="100%" style="font-size:14px;">
 
                       <tr>
-                        <td style="padding:8px 0;"><strong>Mountain:</strong></td>
-                        <td align="right">${bookingData.mountainName}</td>
+                        <td style="padding:8px 0; color:#64748b;">Mountain</td>
+                        <td align="right" style="font-weight:600;">${bookingData.mountainName}</td>
                       </tr>
 
                       <tr>
-                        <td style="padding:8px 0;"><strong>Hike Type:</strong></td>
-                        <td align="right">${bookingData.hikeType}</td>
+                        <td style="padding:8px 0; color:#64748b;">Hike Type</td>
+                        <td align="right" style="font-weight:600;">${bookingData.hikeType}</td>
                       </tr>
 
                       <tr>
-                        <td style="padding:8px 0;"><strong>Date:</strong></td>
-                        <td align="right">${bookingData.date}</td>
+                        <td style="padding:8px 0; color:#64748b;">Add-ons</td>
+                        <td align="right" style="font-weight:600;">${bookingData.addOns}</td>
                       </tr>
 
                       <tr>
-                        <td style="padding:8px 0;"><strong>Participants:</strong></td>
-                        <td align="right">${bookingData.participants}</td>
+                        <td style="padding:8px 0; color:#64748b;">Date</td>
+                        <td align="right" style="font-weight:600;">${bookingData.date}</td>
                       </tr>
 
                       <tr>
-                        <td style="padding:8px 0;"><strong>Total Price:</strong></td>
-                        <td align="right">₱${bookingData.totalPrice.toFixed(2)}</td>
+                        <td style="padding:8px 0; color:#64748b;">Participants</td>
+                        <td align="right" style="font-weight:600;">${bookingData.participants}</td>
+                      </tr>
+
+                      <tr>
+                        <td style="padding:12px 0; font-weight:bold;">Total</td>
+                        <td align="right" style="font-weight:bold; color:#0f172a;">
+                          ₱${bookingData.totalPrice.toFixed(2)}
+                        </td>
                       </tr>
 
                     </table>
+
                   </td>
                 </tr>
 
               </table>
+                 <!-- Next Steps -->
+              <p style="margin:20px 0 6px 0; font-size:14px; font-weight:bold; color:#0f172a;">
+                Next Steps
+              </p>
 
-              <p style="font-size:14px;">
-                We look forward to seeing you on the trail.
+              <p style="margin:0; font-size:13px; color:#475569; line-height:1.6;">
+                • Complete payment using your preferred method<br>
+                • Receive trip and guide details after approval<br>
+                • Take a screenshot of your reference number<br>
+                • Prepare your hiking gear
               </p>
 
             </td>
@@ -272,7 +328,7 @@ export async function sendBookingConfirmation(
 
           <!-- Footer -->
           <tr>
-            <td style="background:#f9fafb; padding:20px; text-align:center; font-size:12px; color:#6b7280;">
+            <td style="background:#f1f5f9; padding:18px; text-align:center; font-size:12px; color:#64748b;">
               © 2026 Ananta Hikes. All rights reserved.
             </td>
           </tr>
@@ -282,16 +338,17 @@ export async function sendBookingConfirmation(
       </td>
     </tr>
   </table>
-
 </body>
+
 </html>
     `;
 
     const mailOptions = {
       from: `${process.env.BREVO_FROM_NAME} <${process.env.BREVO_FROM_EMAIL}>`,
       to: email,
-      subject: `Booking Confirmed - Reference: ${bookingData.bookingId}`,
+      subject: `⛰️ 𝐁𝐨𝐨𝐤𝐢𝐧𝐠 𝐑𝐞𝐜𝐞𝐢𝐯𝐞𝐝 - Ref: ${bookingData.bookingId}`,
       html: htmlTemplate,
+      text: `Thank you for booking with Ananta Hikes!\n\nBooking Reference: ${bookingData.bookingId}\nMountain: ${bookingData.mountainName}\nHike Type: ${bookingData.hikeType}\nAdd-ons: ${bookingData.addOns}\nDate: ${bookingData.date}\nParticipants: ${bookingData.participants}\nTotal Price: ₱${bookingData.totalPrice.toFixed(2)}\n\nYour mountain journey awaits.`,
     };
 
     const result = await transporter.sendMail(mailOptions);
@@ -312,62 +369,81 @@ export async function sendPasswordResetEmail(
 ): Promise<void> {
   try {
     const htmlTemplate = `
-    <!DOCTYPE html>
+   <!DOCTYPE html>
 <html>
+
 <head>
   <meta charset="UTF-8" />
 </head>
 
-<body style="margin:0; padding:0; background:#f4f6f8; font-family:Arial, sans-serif;">
+<body style="margin:0; padding:0; font-family:Arial, sans-serif;">
 
-  <table width="100%" cellpadding="0" cellspacing="0" style="padding:20px 0;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="padding:30px 0;">
     <tr>
       <td align="center">
 
         <!-- Container -->
-        <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff; border-radius:10px; overflow:hidden;">
+        <table width="600" cellpadding="0" cellspacing="0"
+          style="background:#ffffff; border-radius:14px; overflow:hidden; box-shadow:0 8px 30px rgba(0,0,0,0.06);">
 
           <!-- Header -->
           <tr>
-            <td align="center" style="background:#111827; padding:20px;">
-              <img src="https://res.cloudinary.com/dunjk3dzt/image/upload/v1776183431/logo_ox4gir.png"
-                   alt="Logo"
-                   style="width:90px; border-radius:12px; margin-bottom:10px;" />
-              <h2 style="color:#ffffff; margin:0;">Password Reset</h2>
+            <td align="center" style="background:#0f172a; padding:28px 20px;">
+              <img src="https://res.cloudinary.com/dunjk3dzt/image/upload/v1776183431/logo_ox4gir.png" alt="Logo"
+                style="width:80px; border-radius:14px; margin-bottom:12px;" />
+              <h2 style="color:#ffffff; margin:0; font-size:20px;">
+                Password Reset
+              </h2>
+              <p style="color:#94a3b8; font-size:12px; margin-top:6px;">
+                Secure your account
+              </p>
             </td>
           </tr>
 
           <!-- Content -->
           <tr>
-            <td style="padding:30px; color:#333;">
+            <td style="padding:32px 28px; color:#334155;">
 
-              <p style="font-size:14px;">Hello,</p>
+              <p style="font-size:14px; margin:0 0 12px 0;">Hello,</p>
 
-              <p style="font-size:14px; line-height:1.6;">
-                We received a request to reset your password. Use the code below to proceed.
+              <p style="font-size:14px; line-height:1.6; margin:0 0 18px 0;">
+                We received a request to reset your password. Use the code below to continue.
               </p>
 
-              <!-- Code -->
-              <div style="font-size:28px; font-weight:bold; color:#16a34a; text-align:center; letter-spacing:6px; margin:25px 0; padding:15px; background:#f0fdf4; border-radius:8px;">
-                ${resetCode}
-              </div>
+              <!-- Code Card -->
+              <table width="100%" cellpadding="0" cellspacing="0"
+                style="background:#f8fafc; border-radius:12px; padding:20px; margin:24px 0; border:1px solid #e2e8f0; text-align:center;">
+
+                <tr>
+                  <td style="font-size:11px; color:#64748b; letter-spacing:1px; padding-bottom:8px;">
+                    RESET CODE
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="font-size:30px; font-weight:bold; color:#16a34a; letter-spacing:6px;">
+                    ${resetCode}
+                  </td>
+                </tr>
+
+              </table>
 
               <!-- Button -->
               ${resetLink ? `
-              <div style="text-align:center; margin:20px 0;">
+              <div style="text-align:center; margin:24px 0;">
                 <a href="${resetLink}"
-                   style="background:#16a34a; color:#ffffff; padding:12px 20px; text-decoration:none; border-radius:8px; font-size:14px;">
+                  style="display:inline-block; background:#16a34a; color:#ffffff; padding:12px 24px; text-decoration:none; border-radius:10px; font-size:14px; font-weight:bold;">
                   Reset Password
                 </a>
               </div>
               ` : ''}
 
-              <p style="font-size:13px; color:#6b7280;">
-                This code will expire in 1 hour.
+              <p style="font-size:13px; color:#64748b; margin:0 0 6px 0;">
+                This code expires in 1 hour.
               </p>
 
-              <p style="font-size:13px; color:#6b7280;">
-                If you did not request this, you can safely ignore this email.
+              <p style="font-size:13px; color:#64748b; margin:0;">
+                If you did not request this, you can ignore this email.
               </p>
 
             </td>
@@ -375,7 +451,7 @@ export async function sendPasswordResetEmail(
 
           <!-- Footer -->
           <tr>
-            <td style="background:#f9fafb; padding:20px; text-align:center; font-size:12px; color:#6b7280;">
+            <td style="background:#f1f5f9; padding:18px; text-align:center; font-size:12px; color:#64748b;">
               © 2026 Ananta Hikes. All rights reserved.
             </td>
           </tr>
@@ -385,15 +461,15 @@ export async function sendPasswordResetEmail(
       </td>
     </tr>
   </table>
-
 </body>
+
 </html>
     `;
 
     const mailOptions = {
       from: `${process.env.BREVO_FROM_NAME} <${process.env.BREVO_FROM_EMAIL}>`,
       to: email,
-      subject: "Password Reset Request - Hike Booking System",
+      subject: " 𝐏𝐚𝐬𝐬𝐰𝐨𝐫𝐝 𝐑𝐞𝐬𝐞𝐭 𝐑𝐞𝐪𝐮𝐞𝐬𝐭 ",
       html: htmlTemplate,
     };
 
@@ -415,6 +491,7 @@ export async function sendBookingApprovalEmail(
     referenceNumber?: string;
     mountainName: string;
     hikeType: string;
+    addOns?: string;
     date: string;
     participants: number;
     totalPrice: number;
@@ -422,101 +499,145 @@ export async function sendBookingApprovalEmail(
   }
 ): Promise<void> {
   try {
+
+    // Done Booking approval
+
     const htmlTemplate = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="UTF-8" />
-          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-          <style>
-            body { font-family: 'Segoe UI', Arial, sans-serif; background: #f6f8fa; color: #222; margin: 0; }
-            .container { max-width: 540px; margin: 32px auto; background: #fff; border-radius: 18px; box-shadow: 0 4px 24px 0 rgba(16,185,129,0.07); overflow: hidden; }
-            .header { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 32px 24px 20px 24px; text-align: center; }
-            .logo { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 8px; }
-            .logo-img { width: 44px; height: 44px; border-radius: 12px; background: #e6f4ea; display: flex; align-items: center; justify-content: center; }
-            .logo-img img { width: 32px; height: 32px; display: block; }
-            .brand { font-size: 1.7rem; font-weight: 700; color: #059669; letter-spacing: -1px; }
-            .headline { font-size: 1.25rem; font-weight: 600; color: #222; margin: 0; }
-            .content { padding: 28px 24px 18px 24px; }
-            .success-badge { background: #e6f4ea; color: #059669; padding: 12px; border-radius: 8px; text-align: center; margin: 18px 0 18px 0; font-weight: 600; font-size: 15px; letter-spacing: 1px; }
-            .details { background: #f9fafb; padding: 16px; border-radius: 10px; margin: 22px 0; }
-            .detail-row { display: flex; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid #e5e7eb; font-size: 15px; }
-            .detail-row:last-child { border-bottom: none; }
-            .label { font-weight: 500; color: #374151; }
-            .value { color: #059669; font-weight: 500; }
-            .reference { font-size: 18px; font-weight: bold; color: #10b981; padding: 10px; background: #f0fdf4; border-radius: 7px; margin-bottom: 8px; }
-            .footer { background: #f6f8fa; margin-top: 0; padding: 24px 16px 12px 16px; border-top: 1px solid #e5e7eb; font-size: 13px; color: #6b7280; text-align: center; border-radius: 0 0 18px 18px; }
-            @media (max-width: 600px) {
-              .container { border-radius: 0; margin: 0; }
-              .header, .content, .footer { padding-left: 10px !important; padding-right: 10px !important; }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <div class="logo">
-                <span class="logo-img">
-                  <img src="https://anantahikes.com/logo-email.png" alt="Ananta Hikes Logo" />
-                </span>
-                <span class="brand">Ananta Hikes</span>
-              </div>
-              <p class="headline">🎉 Your Booking is Approved!</p>
-            </div>
-            <div class="content">
-              <p style="margin:0 0 8px 0; font-size:15px; color:#222;">Hello ${bookingData.customerName || 'Hiker'},</p>
-              <p style="margin:0 0 18px 0; color:#444; font-size:15px;">Great news! Your hike booking has been approved and confirmed.</p>
-              <div class="success-badge">✓ BOOKING APPROVED</div>
-              <div class="details">
-                <div style="margin-bottom: 10px; color: #6b7280; font-size: 12px; text-transform: uppercase; font-weight: bold;">Booking Reference</div>
-                <div class="reference">${bookingData.referenceNumber || bookingData.bookingId}</div>
-                <div style="margin-top: 14px;">
-                  <div class="detail-row">
-                    <span class="label">Mountain</span>
-                    <span class="value">${bookingData.mountainName}</span>
-                  </div>
-                  <div class="detail-row">
-                    <span class="label">Hike Type</span>
-                    <span class="value">${bookingData.hikeType}</span>
-                  </div>
-                  <div class="detail-row">
-                    <span class="label">Date</span>
-                    <span class="value">${bookingData.date}</span>
-                  </div>
-                  <div class="detail-row">
-                    <span class="label">Participants</span>
-                    <span class="value">${bookingData.participants}</span>
-                  </div>
-                  <div class="detail-row">
-                    <span class="label">Total Amount</span>
-                    <span class="value">₱${bookingData.totalPrice.toFixed(2)}</span>
-                  </div>
-                </div>
-              </div>
-              <p style="color: #374151; line-height: 1.6; font-size:14px; margin: 18px 0 0 0;">
-                <strong>Next Steps:</strong><br>
-                • Check your email for any additional instructions from our tour guides<br>
-                • Arrive 30 minutes before the scheduled date<br>
-                • Bring your booking reference number<br>
-                • Ensure you have appropriate hiking gear and weather protection
+   <!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+</head>
+
+<body style="margin:0; padding:0; font-family:Arial, sans-serif;">
+
+  <table width="100%" cellpadding="0" cellspacing="0" style="padding:30px 0;">
+    <tr>
+      <td align="center">
+
+        <!-- Container -->
+        <table width="600" cellpadding="0" cellspacing="0"
+          style="background:#ffffff; border-radius:14px; overflow:hidden; box-shadow:0 8px 30px rgba(0,0,0,0.06);">
+
+          <!-- Header -->
+          <tr>
+            <td align="center" style="background:#0f172a; padding:28px 20px;">
+              <img src="https://res.cloudinary.com/dunjk3dzt/image/upload/v1776183431/logo_ox4gir.png" alt="Logo"
+                style="width:80px; border-radius:14px; margin-bottom:10px;" />
+              <h2 style="color:#ffffff; margin:0; font-size:18px;">
+                Booking Approved
+              </h2>
+              <p style="color:#94a3b8; font-size:12px; margin-top:5px;">
+                Your hike is confirmed
               </p>
-              <p style="color: #374151; margin-top: 18px; font-size:14px;">
-                If you have any questions or need to reschedule, please contact us immediately. We're excited to see you on the trail!
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td style="padding:32px 28px; color:#334155;">
+
+              <p style="margin:0 0 10px 0; font-size:14px;">
+                Hello ${bookingData.customerName || 'Hiker'},
               </p>
-            </div>
-            <div class="footer">
-              <p style="margin-bottom: 4px;">Ananta Hikes &mdash; Making mountain adventures accessible to everyone</p>
-              <p style="margin:0;">&copy; 2026 Ananta Hikes. All rights reserved.</p>
-            </div>
-          </div>
-        </body>
-      </html>
+
+              <p style="margin:0 0 18px 0; font-size:14px; line-height:1.6;">
+                Your booking has been approved and confirmed.
+              </p>
+              <!-- Booking Card -->
+              <table width="100%" cellpadding="0" cellspacing="0"
+                style="background:#f8fafc; border-radius:12px; padding:20px; border:1px solid #e2e8f0;">
+
+                <!-- Reference -->
+                <tr>
+                  <td style="font-size:11px; color:#64748b; letter-spacing:1px; text-align:center;">
+                    BOOKING REFERENCE
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="font-size:20px; font-weight:bold; color:#16a34a; text-align:center; padding:8px 0 16px 0;">
+                    ${bookingData.referenceNumber || bookingData.bookingId}
+                  </td>
+                </tr>
+
+                <!-- Divider -->
+                <tr>
+                  <td style="border-top:1px solid #e2e8f0; padding-top:12px;">
+
+                    <!-- Details -->
+                    <table width="100%" style="font-size:14px;">
+
+                      <tr>
+                        <td style="padding:8px 0; color:#64748b;">Mountain</td>
+                        <td align="right" style="font-weight:600;">${bookingData.mountainName}</td>
+                      </tr>
+
+                      <tr>
+                        <td style="padding:8px 0; color:#64748b;">Hike Type</td>
+                        <td align="right" style="font-weight:600;">${bookingData.hikeType}</td>
+                      </tr>
+
+                      <tr>
+                        <td style="padding:8px 0; color:#64748b;">Add-ons</td>
+                        <td align="right" style="font-weight:600;">${bookingData.addOns}</td>
+                      </tr>
+
+                      <tr>
+                        <td style="padding:8px 0; color:#64748b;">Date</td>
+                        <td align="right" style="font-weight:600;">${bookingData.date}</td>
+                      </tr>
+
+                      <tr>
+                        <td style="padding:8px 0; color:#64748b;">Participants</td>
+                        <td align="right" style="font-weight:600;">${bookingData.participants}</td>
+                      </tr>
+
+                      <tr>
+                        <td style="padding:12px 0; font-weight:bold;">Total</td>
+                        <td align="right" style="font-weight:bold; color:#0f172a;">
+                          ₱${bookingData.totalPrice.toFixed(2)}
+                        </td>
+                      </tr>
+
+                    </table>
+
+                  </td>
+                </tr>
+
+              </table>
+
+              <p style="font-size:14px; line-height:1.6; margin:0;">
+                Your mountain journey awaits.
+              </p>
+
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background:#f1f5f9; padding:18px; text-align:center; font-size:12px; color:#64748b;">
+              © 2026 Ananta Hikes. All rights reserved.
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
+</body>
+
+</html>
     `;
 
     const mailOptions = {
       from: `${process.env.BREVO_FROM_NAME} <${process.env.BREVO_FROM_EMAIL}>`,
       to: email,
-      subject: `🎉 Your Booking is Approved! - Reference: ${bookingData.referenceNumber || bookingData.bookingId}`,
+      subject: `🎉 𝐘𝐨𝐮𝐫 𝐁𝐨𝐨𝐤𝐢𝐧𝐠 𝐢𝐬 𝐀𝐩𝐩𝐫𝐨𝐯𝐞𝐝! - Ref: ${bookingData.referenceNumber || bookingData.bookingId}`,
       html: htmlTemplate,
       text: `Your booking has been approved!\n\nBooking Reference: ${bookingData.referenceNumber || bookingData.bookingId}\nMountain: ${bookingData.mountainName}\nDate: ${bookingData.date}\nTotal Cost: ₱${bookingData.totalPrice.toFixed(2)}\n\nWe look forward to seeing you!`,
     };
@@ -528,3 +649,8 @@ export async function sendBookingApprovalEmail(
     throw error;
   }
 }
+
+// Done Booking approval
+// Done password reset email
+// Done Booking Confirm
+// Done email verification

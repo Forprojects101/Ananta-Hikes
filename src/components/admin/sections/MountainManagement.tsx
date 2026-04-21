@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-async-client-component */
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { uploadAvatarToCloudinary } from "@/lib/cloudinary";
 import {
   Search,
@@ -12,7 +12,13 @@ import {
   Check,
   X,
   AlertCircle,
+  Image as ImageIcon,
+  Upload,
+  MapPin,
+  Mountain as MountainIcon,
+  Users,
 } from "lucide-react";
+import Cropper from "react-easy-crop";
 import { useDataSync } from "@/context/DataSyncContext";
 import {
   useMountainManagement,
@@ -32,6 +38,7 @@ type MountainRow = {
   inclusions: string | null;
   is_active: boolean | null;
   duration_hours?: number | string | null;
+  image_url?: string | null;
 };
 
 const formatPeso = (value: number | string | null | undefined) => {
@@ -41,11 +48,42 @@ const formatPeso = (value: number | string | null | undefined) => {
   return `₱${numValue.toLocaleString("en-PH")}`;
 };
 
+const difficultyColors: Record<string, string> = {
+  Beginner: "bg-green-100 text-green-800",
+  Intermediate: "bg-yellow-100 text-yellow-800",
+  Advanced: "bg-red-100 text-red-800",
+};
+
+// --- Helper Component for Image Cropping ---
+const CropperWidget = ({ image, crop, zoom, aspect, onCropChange, onZoomChange, onCropComplete }) => {
+  return (
+    <Cropper
+      image={image}
+      crop={crop}
+      zoom={zoom}
+      aspect={aspect}
+      onCropChange={onCropChange}
+      onZoomChange={onZoomChange}
+      onCropComplete={onCropComplete}
+      objectFit="contain"
+    />
+  );
+};
+
 export default function MountainManagement() {
   const { triggerSync } = useDataSync();
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "hidden">("all");
   const [mountains, setMountains] = useState<MountainRow[]>([]);
   const [notice, setNotice] = useState("");
+
+  // Auto-clear notice after 3 seconds
+  useEffect(() => {
+    if (notice) {
+      const timer = setTimeout(() => setNotice(""), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [notice]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isAddingMountain, setIsAddingMountain] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -68,15 +106,25 @@ export default function MountainManagement() {
     location: "",
     difficulty: "Beginner",
     elevationMeters: "",
-    durationHours: "",
     maxParticipants: "30",
     inclusions: "",
     isActive: true,
     imageUrl: "",
   });
 
+  // Image upload/crop state for Edit Mountain
+  const [editImagePreview, setEditImagePreview] = useState<string | null>(null);
+  const [editCroppedBlob, setEditCroppedBlob] = useState<Blob | null>(null);
+  const [showEditCropModal, setShowEditCropModal] = useState(false);
+  const [editCropImage, setEditCropImage] = useState<string | null>(null);
+  const [editCrop, setEditCrop] = useState({ x: 0, y: 0 });
+  const [editZoom, setEditZoom] = useState(1);
+  const [editCroppedAreaPixels, setEditCroppedAreaPixels] = useState(null);
+  const [isEditCropping, setIsEditCropping] = useState(false);
+
   // Image upload/crop state for Add Mountain
   const [addImagePreview, setAddImagePreview] = useState<string | null>(null);
+  const [addCroppedBlob, setAddCroppedBlob] = useState<Blob | null>(null);
   const [showAddCropModal, setShowAddCropModal] = useState(false);
   const [addCropImage, setAddCropImage] = useState<string | null>(null);
   const [addCrop, setAddCrop] = useState({ x: 0, y: 0 });
@@ -84,8 +132,8 @@ export default function MountainManagement() {
   const [addCroppedAreaPixels, setAddCroppedAreaPixels] = useState(null);
   const [isAddCropping, setIsAddCropping] = useState(false);
 
-  // Aspect ratio for h-40 (height: 10rem, width: 100%)
-  const ADD_IMAGE_ASPECT = 5 / 2; // 2.5:1 (width:height)
+  // Aspect ratio for mountain image (landscape 5:2)
+  const ADD_IMAGE_ASPECT = 5 / 2;
 
   const handleAddImageChange = (e) => {
     const file = e.target.files?.[0];
@@ -108,16 +156,13 @@ export default function MountainManagement() {
     try {
       const { getCroppedImage } = await import("@/lib/imageCrop");
       const blob = await getCroppedImage(addCropImage, addCroppedAreaPixels, 0);
-      // Convert blob to File for Cloudinary upload
-      const croppedFile = new File([blob], "mountain.jpg", { type: "image/jpeg" });
-      // Use a generic userId for mountains (or replace with admin id if available)
-      const userId = "mountain";
-      const { url } = await uploadAvatarToCloudinary(croppedFile, userId);
-      setAddImagePreview(url);
-      setAddForm((prev) => ({ ...prev, imageUrl: url }));
+      // Store blob locally — upload deferred to form submit
+      const previewUrl = URL.createObjectURL(blob);
+      setAddCroppedBlob(blob);
+      setAddImagePreview(previewUrl);
       setShowAddCropModal(false);
     } catch (err) {
-      setNotice("Failed to crop or upload image");
+      setNotice("Failed to crop image. Please try again.");
     } finally {
       setIsAddCropping(false);
     }
@@ -134,11 +179,49 @@ export default function MountainManagement() {
     location: "",
     difficulty: "Beginner",
     elevationMeters: "",
-    durationHours: "",
     maxParticipants: "30",
     inclusions: "",
     isActive: true,
+    imageUrl: "",
   });
+
+  const handleEditImageChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setEditCropImage(ev.target.result as string);
+      setShowEditCropModal(true);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const onEditCropComplete = (croppedArea, croppedAreaPixels) => {
+    setEditCroppedAreaPixels(croppedAreaPixels);
+  };
+
+  const handleEditCropSave = async () => {
+    if (!editCropImage || !editCroppedAreaPixels) return;
+    setIsEditCropping(true);
+    try {
+      const { getCroppedImage } = await import("@/lib/imageCrop");
+      const blob = await getCroppedImage(editCropImage, editCroppedAreaPixels, 0);
+      const previewUrl = URL.createObjectURL(blob);
+      setEditCroppedBlob(blob);
+      setEditImagePreview(previewUrl);
+      setShowEditCropModal(false);
+    } catch (err) {
+      setNotice("Failed to crop image. Please try again.");
+    } finally {
+      setIsEditCropping(false);
+    }
+  };
+
+  const handleEditCropCancel = () => {
+    setShowEditCropModal(false);
+    setEditCropImage(null);
+    setEditCroppedAreaPixels(null);
+  };
   const [newHikeTypeForm, setNewHikeTypeForm] = useState({
     name: "",
     description: "",
@@ -200,6 +283,17 @@ export default function MountainManagement() {
     loadMountains();
     loadHikeTypesAndAddOns();
   }, []);
+
+  // Lock body scroll when any major modal is open
+  useEffect(() => {
+    const anyModalOpen = isAddModalOpen || isEditModalOpen || isDeleteModalOpen;
+    if (anyModalOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [isAddModalOpen, isEditModalOpen, isDeleteModalOpen]);
 
   const loadHikeTypesAndAddOns = async () => {
     try {
@@ -363,11 +457,26 @@ export default function MountainManagement() {
 
   const submitAddMountain = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("🏔️ [AddMountain] Form submission started");
 
     if (!addForm.name.trim()) {
       setNotice("Mountain name is required");
       return;
+    }
+
+    setIsAddingMountain(true);
+
+    // Upload cropped image to Cloudinary only now (deferred from crop step)
+    let imageUrl: string | null = addForm.imageUrl || null;
+    if (addCroppedBlob) {
+      try {
+        const croppedFile = new File([addCroppedBlob], "mountain.jpg", { type: "image/jpeg" });
+        const { url } = await uploadAvatarToCloudinary(croppedFile, "mountain");
+        imageUrl = url;
+      } catch (err) {
+        setNotice("Failed to upload image. Please try again.");
+        setIsAddingMountain(false);
+        return;
+      }
     }
 
     const requestPayload = {
@@ -376,14 +485,12 @@ export default function MountainManagement() {
       location: addForm.location.trim() || null,
       difficulty: addForm.difficulty,
       elevationMeters: addForm.elevationMeters ? Number(addForm.elevationMeters) : null,
-      durationHours: addForm.durationHours ? Number(addForm.durationHours) : null,
       maxParticipants: addForm.maxParticipants ? Number(addForm.maxParticipants) : null,
       inclusions: String(addForm.inclusions || "").trim() || null,
       isActive: addForm.isActive,
-      imageUrl: addForm.imageUrl || null,
+      imageUrl,
     };
 
-    setIsAddingMountain(true);
     try {
       const response = await fetch("/api/admin/mountains", {
         method: "POST",
@@ -401,24 +508,14 @@ export default function MountainManagement() {
 
       setNotice("Mountain added successfully");
       setIsAddModalOpen(false);
-      setAddForm({
-        name: "",
-        description: "",
-        location: "",
-        difficulty: "Beginner",
-        elevationMeters: "",
-        durationHours: "",
-        maxParticipants: "30",
-        inclusions: "",
-        isActive: true,
-        imageUrl: "",
-      });
+      setAddForm({ name: "", description: "", location: "", difficulty: "Beginner", elevationMeters: "", maxParticipants: "30", inclusions: "", isActive: true, imageUrl: "" });
       setAddImagePreview(null);
+      setAddCroppedBlob(null);
       setIsAddingMountain(false);
       await loadMountains();
       triggerSync("mountains-updated");
     } catch (error) {
-      setNotice("Network error: Failed to add mountain. Check console for details.");
+      setNotice("Network error: Failed to add mountain.");
       setIsAddingMountain(false);
     }
   };
@@ -432,10 +529,10 @@ export default function MountainManagement() {
       location: mountain.location || "",
       difficulty: mountain.difficulty || "Beginner",
       elevationMeters: mountain.elevation_meters ? String(mountain.elevation_meters) : "",
-      durationHours: mountain.duration_hours ? String(mountain.duration_hours) : "",
       maxParticipants: mountain.max_participants ? String(mountain.max_participants) : "30",
       inclusions: mountain.inclusions || "",
       isActive: Boolean(mountain.is_active),
+      imageUrl: (mountain as any).image_url || "",
     });
 
     // Fetch mountain-specific hike types and add-ons
@@ -444,8 +541,8 @@ export default function MountainManagement() {
       let addOns: any[] = [];
 
       const [hikeRes, addOnsRes] = await Promise.all([
-        fetch(`/api/hike-types?mountainId=${mountain.id}`, { cache: "no-store" }),
-        fetch(`/api/add-ons?mountainId=${mountain.id}`, { cache: "no-store" }),
+        fetch(`/api/hike-types?mountain_id=${mountain.id}`, { cache: "no-store" }),
+        fetch(`/api/add-ons?mountain_id=${mountain.id}`, { cache: "no-store" }),
       ]);
 
       if (hikeRes.ok) {
@@ -461,8 +558,8 @@ export default function MountainManagement() {
       }
 
       // Pre-select hike types and add-ons that belong to this mountain
-      setSelectedHikeTypes(hikeTypes.map(ht => ({ id: ht.id, price: ht.price })));
-      setSelectedAddOns(addOns.map(ao => ({ id: ao.id, price: ao.price })));
+      setSelectedHikeTypes(hikeTypes.map((ht: any) => ({ id: ht.id, price: ht.price })));
+      setSelectedAddOns(addOns.map((ao: any) => ({ id: ao.id, price: ao.price })));
     } catch (error) {
       console.error("Failed to fetch mountain associations:", error);
     }
@@ -471,48 +568,46 @@ export default function MountainManagement() {
 
   const submitEditMountain = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("🏔️ [EditMountain] Form submission started");
-
-    if (!editingMountain || isSavingEdit) {
-      console.warn("⚠️ [EditMountain] Missing mountain data or already saving");
-      return;
-    }
-
-    console.log("💾 [EditMountain] Submitting mountain edit");
-    console.log("🏔️ [EditMountain] Mountain ID:", editingMountain.id);
-    console.log("📋 [EditMountain] Basic info:", {
-      name: editForm.name,
-      description: editForm.description,
-      location: editForm.location,
-      difficulty: editForm.difficulty,
-      elevationMeters: editForm.elevationMeters,
-      maxParticipants: editForm.maxParticipants,
-      inclusions: editForm.inclusions,
-    });
-
-    const requestPayload = {
-      name: editForm.name,
-      description: editForm.description.trim() || null,
-      location: editForm.location,
-      difficulty: editForm.difficulty,
-      elevationMeters: editForm.elevationMeters ? Number(editForm.elevationMeters) : null,
-      durationHours: editForm.durationHours ? Number(editForm.durationHours) : null,
-      maxParticipants: editForm.maxParticipants ? Number(editForm.maxParticipants) : null,
-      inclusions: String(editForm.inclusions || "").trim() || null,
-      isActive: editForm.isActive,
-      hikeTypes: selectedHikeTypes,
-      addOns: selectedAddOns,
-    };
-
-    console.log("📤 [EditMountain] Sending request payload:", JSON.stringify(requestPayload, null, 2));
+    if (!editingMountain || isSavingEdit) return;
 
     setIsSavingEdit(true);
     setEditSavedPulse(false);
 
     try {
-      // Debug: Check if auth cookie exists
-      console.log("🔐 [EditMountain] Auth check - Cookies available:", document.cookie ? "Yes" : "No");
-      console.log("🔐 [EditMountain] Request credentials: include");
+      let finalImageUrl = editForm.imageUrl;
+
+      // Upload new image if selected
+      if (editCroppedBlob) {
+        const formData = new FormData();
+        formData.append("file", editCroppedBlob);
+        formData.append("upload_preset", "ml_default");
+
+        const uploadRes = await fetch(
+          `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`,
+          { method: "POST", body: formData }
+        );
+
+        if (uploadRes.ok) {
+          const uploadData = await uploadRes.json();
+          finalImageUrl = uploadData.secure_url;
+        } else {
+          console.error("❌ [EditMountain] Cloudinary upload failed");
+        }
+      }
+
+      const requestPayload = {
+        name: editForm.name,
+        description: editForm.description.trim() || null,
+        location: editForm.location,
+        difficulty: editForm.difficulty,
+        elevationMeters: editForm.elevationMeters ? Number(editForm.elevationMeters) : null,
+        maxParticipants: editForm.maxParticipants ? Number(editForm.maxParticipants) : null,
+        inclusions: String(editForm.inclusions || "").trim() || null,
+        isActive: editForm.isActive,
+        imageUrl: finalImageUrl,
+        hikeTypes: selectedHikeTypes,
+        addOns: selectedAddOns,
+      };
 
       const response = await fetch(`/api/admin/mountains/${editingMountain.id}`, {
         method: "PATCH",
@@ -521,59 +616,30 @@ export default function MountainManagement() {
         body: JSON.stringify(requestPayload),
       });
 
-      console.log("📨 [EditMountain] Response status:", response.status, response.statusText);
-
       if (!response.ok) {
-        let errorData: any = {};
-        const responseText = await response.text();
-
-        try {
-          errorData = JSON.parse(responseText);
-        } catch (e) {
-          console.error("❌ [EditMountain] Failed to parse error response as JSON");
-          errorData = { message: responseText || "Unknown error" };
-        }
-
-        console.error("❌ [EditMountain] API Error Response:", errorData);
-        console.error("❌ [EditMountain] Full error details:", {
-          status: response.status,
-          statusText: response.statusText,
-          message: errorData.message,
-          code: errorData.code,
-          details: errorData.details,
-          headers: {
-            contentType: response.headers.get("content-type"),
-            contentLength: response.headers.get("content-length"),
-          },
-        });
-        // console.error("❌ [EditMountain] REQUEST PAYLOAD:", JSON.stringify(requestPayload, null, 2));
-
+        const errorData = await response.json().catch(() => ({ message: "Unknown error" }));
         setNotice(errorData.message || "Failed to update mountain");
         setIsSavingEdit(false);
         return;
       }
 
-      const updateData = await response.json();
-      console.log("✅ [EditMountain] Mountain updated successfully:", updateData);
       setNotice("Mountain updated successfully");
       setEditSavedPulse(true);
+
       setTimeout(() => {
         setIsEditModalOpen(false);
         setEditingMountain(null);
+        setEditImagePreview(null);
+        setEditCroppedBlob(null);
         setIsSavingEdit(false);
         setEditSavedPulse(false);
       }, 800);
+
       await loadMountains();
       triggerSync("mountains-updated");
-      console.log("🚀 [EditMountain] Triggered mountains-updated sync event");
     } catch (error) {
-      console.error("❌ [EditMountain] Network/Parse error:", error);
-      console.error("❌ [EditMountain] Error details:", {
-        name: error instanceof Error ? error.name : "Unknown",
-        message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : "No stack trace",
-      });
-      setNotice("Network error: Failed to update mountain. Check console for details.");
+      console.error("❌ [EditMountain] Error:", error);
+      setNotice("Error updating mountain details");
       setIsSavingEdit(false);
     }
   };
@@ -795,26 +861,30 @@ export default function MountainManagement() {
   };
 
   const filteredMountains = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
-    if (!term) return mountains;
+    let result = mountains;
+    
+    // Status Filter
+    if (statusFilter === "active") {
+      result = result.filter(m => m.is_active);
+    } else if (statusFilter === "hidden") {
+      result = result.filter(m => !m.is_active);
+    }
 
-    return mountains.filter((mountain) => {
+    // Search Filter
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return result;
+
+    return result.filter((mountain) => {
       return (
         mountain.name.toLowerCase().includes(term) ||
         (mountain.location || "").toLowerCase().includes(term) ||
         (mountain.difficulty || "").toLowerCase().includes(term)
       );
     });
-  }, [mountains, searchTerm]);
-
-  const difficultyColors: Record<string, string> = {
-    Beginner: "bg-green-100 text-green-800",
-    Intermediate: "bg-yellow-100 text-yellow-800",
-    Advanced: "bg-red-100 text-red-800",
-  };
+  }, [mountains, searchTerm, statusFilter]);
 
   return (
-    <div>
+    <div className="w-full">
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Mountain Management</h1>
@@ -830,292 +900,403 @@ export default function MountainManagement() {
       </div>
 
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-2xl rounded-xl bg-white p-8 shadow-2xl transition-all duration-200 animate-in zoom-in-95 fade-in max-h-[90vh] overflow-y-auto">
-            <h2 className="mb-6 text-2xl font-bold text-gray-900">Add Mountain</h2>
-            <form onSubmit={submitAddMountain} className="space-y-6">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-3xl rounded-2xl bg-white shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
 
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-7 py-5 border-b border-gray-100 flex-shrink-0">
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">Name</label>
-                <input
-                  type="text"
-                  value={addForm.name}
-                  onChange={(e) => setAddForm({
-                    name: e.target.value,
-                    description: addForm.description,
-                    location: addForm.location,
-                    difficulty: addForm.difficulty,
-                    elevationMeters: addForm.elevationMeters,
-                    durationHours: addForm.durationHours,
-                    maxParticipants: addForm.maxParticipants,
-                    inclusions: addForm.inclusions,
-                    isActive: addForm.isActive,
-                  })}
-                  className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:border-transparent focus:ring-2 focus:ring-primary-600"
-                  required
-                />
+                <h2 className="text-xl font-bold text-gray-900">Add Mountain</h2>
+                <p className="mt-0.5 text-xs text-gray-500">Create a new hiking destination</p>
               </div>
+              <button
+                type="button"
+                onClick={() => { setIsAddModalOpen(false); setAddForm({ name: "", description: "", location: "", difficulty: "Beginner", elevationMeters: "", maxParticipants: "30", inclusions: "", isActive: true, imageUrl: "" }); setAddImagePreview(null); setAddCroppedBlob(null); }}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
 
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">Description</label>
-                <textarea
-                  rows={2}
-                  value={addForm.description}
-                  onChange={(e) => setAddForm({
-                    name: addForm.name,
-                    description: e.target.value,
-                    location: addForm.location,
-                    difficulty: addForm.difficulty,
-                    elevationMeters: addForm.elevationMeters,
-                    durationHours: addForm.durationHours,
-                    maxParticipants: addForm.maxParticipants,
-                    inclusions: addForm.inclusions,
-                    isActive: addForm.isActive,
-                  })}
-                  className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:border-transparent focus:ring-2 focus:ring-primary-600"
-                  placeholder="Brief overview"
-                />
-              </div>
+            {/* Modal Body */}
+            <form id="add-mountain-form" onSubmit={submitAddMountain} className="flex flex-1 min-h-0 overflow-hidden">
 
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">Location</label>
-                <input
-                  type="text"
-                  value={addForm.location}
-                  onChange={(e) => setAddForm({
-                    name: addForm.name,
-                    description: addForm.description,
-                    location: e.target.value,
-                    difficulty: addForm.difficulty,
-                    elevationMeters: addForm.elevationMeters,
-                    durationHours: addForm.durationHours,
-                    maxParticipants: addForm.maxParticipants,
-                    inclusions: addForm.inclusions,
-                    isActive: addForm.isActive,
-                  })}
-                  className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:border-transparent focus:ring-2 focus:ring-primary-600"
-                />
-              </div>
+              {/* Left: Image Upload Panel */}
+              <div className="w-64 flex-shrink-0 flex flex-col gap-4 p-6 bg-gray-50 border-r border-gray-100 overflow-y-auto">
+                <p className="text-sm font-semibold text-gray-700">Mountain Image</p>
 
+                {/* Preview */}
+                <div className="w-full aspect-[5/3] rounded-xl overflow-hidden bg-gray-200 border border-gray-200 relative flex items-center justify-center">
+                  {addImagePreview ? (
+                    <img src={addImagePreview} alt="Preview" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 text-gray-400">
+                      <ImageIcon size={28} />
+                      <span className="text-xs text-center leading-tight">No image<br />selected</span>
+                    </div>
+                  )}
+                </div>
 
-              <div className="grid grid-cols-4 gap-2">
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-700">Difficulty</label>
-                  <select
-                    value={addForm.difficulty}
-                    onChange={(e) => setAddForm({
-                      name: addForm.name,
-                      description: addForm.description,
-                      location: addForm.location,
-                      difficulty: e.target.value,
-                      elevationMeters: addForm.elevationMeters,
-                      durationHours: addForm.durationHours,
-                      maxParticipants: addForm.maxParticipants,
-                      inclusions: addForm.inclusions,
-                      isActive: addForm.isActive,
-                    })}
-                    className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:border-transparent focus:ring-2 focus:ring-primary-600"
+                {/* Upload Button */}
+                <label className="w-full cursor-pointer">
+                  <div className="flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 px-3 py-2.5 text-sm font-medium text-gray-600 hover:border-primary-400 hover:text-primary-600 hover:bg-primary-50 transition-colors">
+                    <Upload size={15} />
+                    {addImagePreview ? "Change Image" : "Upload Image"}
+                  </div>
+                  <input type="file" accept="image/*" className="hidden" onChange={handleAddImageChange} />
+                </label>
+
+                {addImagePreview && (
+                  <button
+                    type="button"
+                    onClick={() => { setAddImagePreview(null); setAddCroppedBlob(null); setAddForm(prev => ({ ...prev, imageUrl: "" })); }}
+                    className="text-xs text-red-500 hover:text-red-700 transition-colors text-center"
                   >
-                    <option>Beginner</option>
-                    <option>Intermediate</option>
-                    <option>Advanced</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-700">Elevation (m)</label>
+                    Remove image
+                  </button>
+                )}
+
+                <p className="text-[11px] text-gray-400 text-center leading-relaxed">
+                  Recommended: 5:2 landscape<br />JPG, PNG, WebP
+                </p>
+                <label className="flex items-center gap-2.5 cursor-pointer">
                   <input
-                    type="number"
-                    min="0"
-                    value={addForm.elevationMeters}
-                    onChange={(e) => setAddForm({
-                      name: addForm.name,
-                      description: addForm.description,
-                      location: addForm.location,
-                      difficulty: addForm.difficulty,
-                      elevationMeters: e.target.value,
-                      durationHours: addForm.durationHours,
-                      maxParticipants: addForm.maxParticipants,
-                      inclusions: addForm.inclusions,
-                      isActive: addForm.isActive,
-                    })}
-                    className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:border-transparent focus:ring-2 focus:ring-primary-600"
+                    type="checkbox"
+                    checked={addForm.isActive}
+                    onChange={(e) => setAddForm(prev => ({ ...prev, isActive: e.target.checked }))}
+                    className="h-4 w-4 rounded border-gray-300 text-primary-600"
                   />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-700">Duration (hrs)</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={addForm.durationHours || ""}
-                    onChange={(e) => setAddForm({
-                      name: addForm.name,
-                      description: addForm.description,
-                      location: addForm.location,
-                      difficulty: addForm.difficulty,
-                      elevationMeters: addForm.elevationMeters,
-                      durationHours: e.target.value,
-                      maxParticipants: addForm.maxParticipants,
-                      inclusions: addForm.inclusions,
-                      isActive: addForm.isActive,
-                    })}
-                    className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:border-transparent focus:ring-2 focus:ring-primary-600"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-700">Capacity</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={addForm.maxParticipants || ""}
-                    onChange={(e) => setAddForm({
-                      name: addForm.name,
-                      description: addForm.description,
-                      location: addForm.location,
-                      difficulty: addForm.difficulty,
-                      elevationMeters: addForm.elevationMeters,
-                      durationHours: addForm.durationHours,
-                      maxParticipants: e.target.value,
-                      inclusions: addForm.inclusions,
-                      isActive: addForm.isActive,
-                    })}
-                    className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:border-transparent focus:ring-2 focus:ring-primary-600"
-                  />
-                </div>
+                  <span className="text-sm font-medium text-gray-700">Active (visible to users)</span>
+                </label>
               </div>
 
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">Inclusions</label>
-                <textarea
-                  rows={3}
-                  value={addForm.inclusions}
-                  onChange={(e) => setAddForm({
-                    name: addForm.name,
-                    description: addForm.description,
-                    location: addForm.location,
-                    difficulty: addForm.difficulty,
-                    elevationMeters: addForm.elevationMeters,
-                    durationHours: addForm.durationHours,
-                    maxParticipants: addForm.maxParticipants,
-                    inclusions: e.target.value,
-                    isActive: addForm.isActive,
-                  })}
-                  className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:border-transparent focus:ring-2 focus:ring-primary-600"
-                  placeholder="What's included in this hike package (e.g., meals, gear, guides)"
-                />
-              </div>
+              {/* Right: Form Fields */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-5">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Mountain Name <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    value={addForm.name}
+                    onChange={(e) => setAddForm(prev => ({ ...prev, name: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-transparent focus:ring-2 focus:ring-primary-500 transition-shadow"
+                    placeholder="e.g., Mt. Apo"
+                    required
+                  />
+                </div>
 
-              <label className="flex items-center gap-2 text-xs font-medium text-gray-700 pt-2">
-                <input
-                  type="checkbox"
-                  checked={addForm.isActive}
-                  onChange={(e) => setAddForm({
-                    name: addForm.name,
-                    description: addForm.description,
-                    location: addForm.location,
-                    difficulty: addForm.difficulty,
-                    elevationMeters: addForm.elevationMeters,
-                    durationHours: addForm.durationHours,
-                    maxParticipants: addForm.maxParticipants,
-                    inclusions: addForm.inclusions,
-                    isActive: e.target.checked,
-                  })}
-                  className="h-4 w-4 rounded border-gray-300"
-                />
-                Active
-              </label>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Description</label>
+                  <textarea
+                    rows={3}
+                    value={addForm.description}
+                    onChange={(e) => setAddForm(prev => ({ ...prev, description: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-transparent focus:ring-2 focus:ring-primary-500 transition-shadow resize-none"
+                    placeholder="Brief overview of this mountain..."
+                  />
+                </div>
 
-              {/* Form Actions */}
-              <div className="flex gap-3 pt-4 border-t border-gray-200">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsAddModalOpen(false);
-                    setAddForm({
-                      name: "",
-                      description: "",
-                      location: "",
-                      difficulty: "Beginner",
-                      elevationMeters: "",
-                      durationHours: "",
-                      maxParticipants: "30",
-                      inclusions: "",
-                      isActive: true,
-                    });
-                  }}
-                  disabled={isAddingMountain}
-                  className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isAddingMountain}
-                  className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-all duration-500 disabled:cursor-not-allowed ${isAddingMountain ? "opacity-90 bg-primary-600" : "bg-primary-600 hover:bg-primary-700 active:scale-95 shadow-md"
-                    }`}
-                >
-                  {isAddingMountain ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
-                  {isAddingMountain ? "Adding..." : "Add Mountain"}
-                </button>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Location</label>
+                  <input
+                    type="text"
+                    value={addForm.location}
+                    onChange={(e) => setAddForm(prev => ({ ...prev, location: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-transparent focus:ring-2 focus:ring-primary-500 transition-shadow"
+                    placeholder="e.g., Davao del Sur, Philippines"
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Difficulty</label>
+                    <select
+                      value={addForm.difficulty}
+                      onChange={(e) => setAddForm(prev => ({ ...prev, difficulty: e.target.value }))}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-transparent focus:ring-2 focus:ring-primary-500 transition-shadow"
+                    >
+                      <option>Beginner</option>
+                      <option>Intermediate</option>
+                      <option>Advanced</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Elevation (m)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={addForm.elevationMeters}
+                      onChange={(e) => setAddForm(prev => ({ ...prev, elevationMeters: e.target.value }))}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-transparent focus:ring-2 focus:ring-primary-500 transition-shadow"
+                      placeholder="0"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Capacity</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={addForm.maxParticipants}
+                      onChange={(e) => setAddForm(prev => ({ ...prev, maxParticipants: e.target.value }))}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-transparent focus:ring-2 focus:ring-primary-500 transition-shadow"
+                      placeholder="30"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Inclusions</label>
+                  <textarea
+                    rows={3}
+                    value={addForm.inclusions}
+                    onChange={(e) => setAddForm(prev => ({ ...prev, inclusions: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-transparent focus:ring-2 focus:ring-primary-500 transition-shadow resize-none"
+                    placeholder="What&apos;s included (e.g., meals, gear, guides)..."
+                  />
+                </div>
+
               </div>
             </form>
+
+            {/* Modal Footer */}
+            <div className="flex gap-3 px-7 py-4 border-t border-gray-100 bg-white flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => { setIsAddModalOpen(false); setAddForm({ name: "", description: "", location: "", difficulty: "Beginner", elevationMeters: "", maxParticipants: "30", inclusions: "", isActive: true, imageUrl: "" }); setAddImagePreview(null); setAddCroppedBlob(null); }}
+                disabled={isAddingMountain}
+                className="flex-1 rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="add-mountain-form"
+                disabled={isAddingMountain}
+                className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition-all duration-300 disabled:cursor-not-allowed ${isAddingMountain ? "opacity-90 bg-primary-600" : "bg-primary-600 hover:bg-primary-700 active:scale-95 shadow-md"}`}
+              >
+                {isAddingMountain ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+                {isAddingMountain ? "Adding..." : "Add Mountain"}
+              </button>
+            </div>
           </div>
+
+          {/* Crop Modal — rendered on top of the Add Modal */}
+          {showAddCropModal && addCropImage && (
+            <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 p-4">
+              <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+                <h3 className="mb-1 text-lg font-bold text-gray-900">Crop Image</h3>
+                <p className="mb-4 text-xs text-gray-500">Adjust the crop area for the mountain banner</p>
+                <div className="relative h-56 w-full overflow-hidden rounded-xl bg-gray-900">
+                  {/* react-easy-crop is loaded dynamically; render via dynamic import if available */}
+                  <CropperWidget
+                    image={addCropImage}
+                    crop={addCrop}
+                    zoom={addZoom}
+                    aspect={ADD_IMAGE_ASPECT}
+                    onCropChange={setAddCrop}
+                    onZoomChange={setAddZoom}
+                    onCropComplete={onAddCropComplete}
+                  />
+                </div>
+                <div className="mt-4">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Zoom: {addZoom.toFixed(1)}x</label>
+                  <input
+                    type="range"
+                    min={1}
+                    max={3}
+                    step={0.01}
+                    value={addZoom}
+                    onChange={(e) => setAddZoom(Number(e.target.value))}
+                    className="w-full accent-primary-600"
+                  />
+                </div>
+                <div className="mt-5 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={handleAddCropCancel}
+                    disabled={isAddCropping}
+                    className="flex-1 rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAddCropSave}
+                    disabled={isAddCropping}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50 transition-colors"
+                  >
+                    {isAddCropping ? <><Loader2 size={16} className="animate-spin" /> Processing...</> : "Apply Crop"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {notice && (
-        <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-          {notice}
-        </div>
-      )}
+      {/* Toast Notification Container */}
+      <div className="fixed top-6 right-6 z-[9999] flex flex-col gap-3 pointer-events-none">
+        {notice && (
+          <div className={`pointer-events-auto min-w-[300px] flex items-center gap-3 rounded-2xl border px-5 py-4 shadow-2xl transition-all duration-300 transform translate-y-0 animate-in slide-in-from-right-full ${
+            notice.toLowerCase().includes('error') || notice.toLowerCase().includes('failed')
+              ? "bg-rose-50 border-rose-100 text-rose-700" 
+              : "bg-white border-emerald-100 text-emerald-700"
+          }`}>
+            <div className={`flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center ${
+              notice.toLowerCase().includes('error') || notice.toLowerCase().includes('failed')
+                ? "bg-rose-100" 
+                : "bg-emerald-100"
+            }`}>
+              {notice.toLowerCase().includes('error') || notice.toLowerCase().includes('failed') ? (
+                <AlertCircle size={18} className="text-rose-600" />
+              ) : (
+                <Check size={18} className="text-emerald-600" />
+              )}
+            </div>
+            <div className="flex-1">
+              <p className="text-xs font-bold leading-tight">
+                {notice.toLowerCase().includes('error') || notice.toLowerCase().includes('failed') ? "System Error" : "Success Message"}
+              </p>
+              <p className="text-[11px] font-medium opacity-90 mt-0.5">{notice}</p>
+            </div>
+            <button 
+              onClick={() => setNotice("")}
+              className="ml-2 p-1 hover:bg-black/5 rounded-lg transition-colors"
+            >
+              <X size={14} className="opacity-50" />
+            </button>
+          </div>
+        )}
+      </div>
 
-      {/* Search Bar */}
-      <div className="mb-6 relative">
-        <Search className="absolute left-3 top-3 text-gray-400" size={20} />
-        <input
-          type="text"
-          placeholder="Search mountains..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-600 focus:border-transparent"
-        />
+      {/* Search & Filter Bar */}
+      <div className="mb-6 flex flex-col md:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
+          <input
+            type="text"
+            placeholder="Search mountains by name, location..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-600 focus:border-transparent transition-all outline-none bg-white shadow-sm"
+          />
+        </div>
+        
+        <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-sm self-start">
+          {[
+            { id: 'all', label: 'All' },
+            { id: 'active', label: 'Active' },
+            { id: 'hidden', label: 'Hidden' }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setStatusFilter(tab.id as any)}
+              className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                statusFilter === tab.id 
+                  ? "bg-white text-primary-600 shadow-sm" 
+                  : "text-slate-500 hover:text-slate-700 hover:bg-white/50"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Mountains Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {filteredMountains.map((mountain) => (
-          <div key={mountain.id} className="bg-white rounded-lg shadow overflow-hidden hover:shadow-lg transition-shadow">
-            <div className="h-40 bg-gradient-to-br from-primary-400 to-emerald-500" />
-            <div className="p-4">
-              <h3 className="text-lg font-bold text-gray-900 mb-2">{mountain.name}</h3>
-              <p className="mb-3 text-sm text-gray-600 line-clamp-2">
-                {mountain.description || "No description yet."}
+          <div 
+            key={mountain.id} 
+            className={`group bg-white rounded-2xl border shadow-sm overflow-hidden hover:shadow-md transition-all duration-300 flex flex-col ${
+              mountain.is_active 
+                ? "border-slate-200 hover:border-slate-300" 
+                : "border-slate-100 bg-slate-50/50 grayscale-[0.4] opacity-80"
+            }`}
+          >
+            {/* Image Section */}
+            <div className="relative h-48 overflow-hidden bg-slate-100">
+              {mountain.image_url ? (
+                <img 
+                  src={mountain.image_url} 
+                  alt={mountain.name} 
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
+                />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
+                  <MountainIcon className="text-slate-300" size={40} />
+                </div>
+              )}
+              
+              {/* Status & Difficulty Badges Overlay */}
+              <div className="absolute top-3 right-3 flex flex-col gap-2">
+                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider shadow-sm border ${
+                  mountain.is_active 
+                    ? "bg-emerald-50 text-emerald-600 border-emerald-100" 
+                    : "bg-slate-50 text-slate-500 border-slate-100"
+                }`}>
+                  {mountain.is_active ? "Active" : "Hidden"}
+                </span>
+              </div>
+              
+              <div className="absolute bottom-3 left-3">
+                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider shadow-sm border bg-white/90 backdrop-blur-sm ${
+                  difficultyColors[mountain.difficulty || "Beginner"]?.replace('bg-', 'text-').replace('100', '600') || "text-slate-600"
+                }`}>
+                  {mountain.difficulty || "Beginner"}
+                </span>
+              </div>
+            </div>
+
+            {/* Content Section */}
+            <div className="p-5 flex flex-col flex-1">
+              <div className="mb-3">
+                <h3 className="text-lg font-bold text-slate-800 leading-tight group-hover:text-primary-600 transition-colors">
+                  {mountain.name}
+                </h3>
+                <div className="flex items-center gap-1.5 mt-1 text-slate-500">
+                  <MapPin size={12} className="shrink-0" />
+                  <span className="text-xs font-medium truncate">{mountain.location || "Location TBD"}</span>
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed mb-4 flex-1">
+                {mountain.description || "Embark on an unforgettable journey to this majestic summit. Perfect for adventurers seeking breathtaking views."}
               </p>
-              <div className="space-y-2 text-sm mb-4">
-                <p className="text-gray-600"><span className="font-medium">Location:</span> {mountain.location || "N/A"}</p>
-                <p className="text-gray-600"><span className="font-medium">Elevation:</span> {mountain.elevation_meters ? `${mountain.elevation_meters.toLocaleString("en-PH")} m` : "TBD"}</p>
-                <p className="text-gray-600"><span className="font-medium">Capacity:</span> {mountain.max_participants || "N/A"}</p>
+
+              {/* Stats Grid */}
+              <div className="grid grid-cols-2 gap-3 mb-5 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                    <MountainIcon size={10} /> Elevation
+                  </span>
+                  <span className="text-sm font-bold text-slate-700">
+                    {mountain.elevation_meters ? `${mountain.elevation_meters.toLocaleString("en-PH")}m` : "TBD"}
+                  </span>
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                    <Users size={10} /> Max Capacity
+                  </span>
+                  <span className="text-sm font-bold text-slate-700">
+                    {mountain.max_participants || "30"} hikers
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center gap-2 mb-4">
-                <span className={`px-3 py-1 rounded-full text-sm font-medium ${difficultyColors[mountain.difficulty || "Beginner"]}`}>
-                  {mountain.difficulty || "N/A"}
-                </span>
-                <span className={`px-3 py-1 rounded-full text-xs font-medium ${mountain.is_active ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-700"}`}>
-                  {mountain.is_active ? "Active" : "Inactive"}
-                </span>
-              </div>
+
+              {/* Action Buttons */}
               <div className="flex gap-2">
                 <button
                   onClick={() => handleEditMountain(mountain)}
-                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm"
                 >
-                  <Edit size={18} />
+                  <Edit size={14} />
                   Edit
                 </button>
                 <button
                   onClick={() => handleDeleteMountain(mountain)}
-                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-red-600 border border-red-300 rounded-lg hover:bg-red-50 transition-colors"
+                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-xs font-bold text-rose-600 bg-white border border-rose-100 rounded-xl hover:bg-rose-50 hover:border-rose-200 transition-all shadow-sm"
                 >
-                  <Trash2 size={18} />
+                  <Trash2 size={14} />
                   Delete
                 </button>
               </div>
@@ -1125,397 +1306,502 @@ export default function MountainManagement() {
       </div>
 
       {isEditModalOpen && editingMountain && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-7xl rounded-xl bg-white p-10 shadow-2xl max-h-[95vh] overflow-y-auto">
-            <div className="mb-8 flex items-center justify-between border-b-2 border-gray-200 pb-6">
-              <h2 className="text-3xl font-bold text-gray-900">Edit Mountain</h2>
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-7xl rounded-2xl bg-white shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-8 py-6 border-b border-gray-100 flex-shrink-0">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Edit Mountain</h2>
+                <p className="mt-1 text-sm text-gray-500">Update details for {editingMountain.name}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsEditModalOpen(false);
+                  setEditingMountain(null);
+                  setEditImagePreview(null);
+                  setEditCroppedBlob(null);
+                }}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X size={24} />
+              </button>
             </div>
-            <form onSubmit={submitEditMountain} className="space-y-8">
-              <div className="grid grid-cols-3 gap-8">
-                {/* Left Column - Basic Info */}
-                <div className="col-span-1 space-y-5 bg-gradient-to-b from-gray-50 to-white rounded-lg border border-gray-200 p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 pb-2 border-b border-gray-200">Basic Information</h3>
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700">Name</label>
-                    <input
-                      type="text"
-                      value={editForm.name}
-                      onChange={(e) => setEditForm((prev) => ({ ...prev, name: e.target.value }))}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-primary-600"
-                      required
-                    />
-                  </div>
 
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700">Description</label>
-                    <textarea
-                      rows={3}
-                      value={editForm.description}
-                      onChange={(e) => setEditForm((prev) => ({ ...prev, description: e.target.value }))}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-primary-600"
-                      placeholder="Brief overview"
-                    />
-                  </div>
+            <form id="edit-mountain-form" onSubmit={submitEditMountain} className="flex flex-1 min-h-0 overflow-hidden">
+              {/* Left: Image Upload Panel */}
+              <div className="w-72 flex-shrink-0 flex flex-col gap-5 p-8 bg-gray-50 border-r border-gray-100 overflow-y-auto">
+                <p className="text-sm font-bold text-gray-700 uppercase tracking-wider">Mountain Image</p>
 
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700">Inclusions</label>
-                    <textarea
-                      rows={3}
-                      value={editForm.inclusions}
-                      onChange={(e) => setEditForm((prev) => ({ ...prev, inclusions: e.target.value }))}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-primary-600"
-                      placeholder="What's included in this hike package (e.g., meals, gear, guides)"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700">Location</label>
-                    <input
-                      type="text"
-                      value={editForm.location}
-                      onChange={(e) => setEditForm((prev) => ({ ...prev, location: e.target.value }))}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-primary-600"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-4 gap-4 items-end">
-                    <div>
-                      <label className="mb-2 block text-sm font-medium text-gray-700">Difficulty</label>
-                      <select
-                        value={editForm.difficulty}
-                        onChange={(e) => setEditForm((prev) => ({ ...prev, difficulty: e.target.value }))}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-primary-600"
-                      >
-                        <option>Beginner</option>
-                        <option>Intermediate</option>
-                        <option>Advanced</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="mb-2 block text-sm font-medium text-gray-700">Elevation (m)</label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={editForm.elevationMeters}
-                        onChange={(e) => setEditForm((prev) => ({ ...prev, elevationMeters: e.target.value }))}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-primary-600"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-2 block text-sm font-medium text-gray-700">Duration (hrs)</label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={editForm.durationHours}
-                        onChange={(e) => setEditForm((prev) => ({ ...prev, durationHours: e.target.value }))}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-primary-600"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-2 block text-sm font-medium text-gray-700">Capacity</label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={editForm.maxParticipants}
-                        onChange={(e) => setEditForm((prev) => ({ ...prev, maxParticipants: e.target.value }))}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-primary-600"
-                      />
-                    </div>
-                  </div>
-
-                  <label className="flex items-center gap-3 text-sm font-medium text-gray-700 pt-2">
-                    <input
-                      type="checkbox"
-                      checked={editForm.isActive}
-                      onChange={(e) => setEditForm((prev) => ({ ...prev, isActive: e.target.checked }))}
-                      className="h-5 w-5 rounded border-gray-300"
-                    />
-                    Active
-                  </label>
-                </div>
-
-                {/* Right Column - Hike Types and Add-Ons */}
-                <div className="col-span-2 grid grid-cols-2 gap-6">
-                  {/* Hike Types Section */}
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between pb-2 border-b-2 border-gray-300">
-                      <h3 className="text-lg font-semibold text-gray-900">Hike Types</h3>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setNewHikeTypeForm({ name: "", description: "", duration: "", fitness: "Beginner", price: "" });
-                          setIsAddHikeTypeModalOpen(true);
-                        }}
-                        className="flex items-center gap-2 rounded-lg bg-primary-600 text-white px-3 py-1.5 text-xs font-semibold hover:bg-primary-700 active:scale-95 transition-all shadow-sm"
-                      >
-                        <Plus size={16} /> Add
-                      </button>
-                    </div>
-                    <div className="flex flex-col">
-                      <h4 className="text-sm font-semibold text-gray-900 mb-3">Available Hike Types</h4>
-                      <div className="flex-1 border border-gray-200 rounded-lg overflow-hidden bg-white">
-                        <table className="w-full">
-                          <thead>
-                            <tr className="bg-gradient-to-r from-gray-100 to-gray-50 border-b border-gray-200">
-                              <th className="w-12 px-4 py-3 text-left"><input type="checkbox" className="h-5 w-5 rounded cursor-pointer" disabled /></th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Name</th>
-                              <th className="w-24 px-4 py-3 text-right text-xs font-semibold text-gray-700">Price</th>
-                              <th className="w-16 px-4 py-3 text-center text-xs font-semibold text-gray-700">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {availableHikeTypes.length > 0 ? (
-                              availableHikeTypes.map((hikeType) => (
-                                <tr key={hikeType.id} className="border-b border-gray-100 hover:bg-primary-50 transition-colors group">
-                                  <td className="px-4 py-3">
-                                    <input
-                                      type="checkbox"
-                                      checked={selectedHikeTypes.some(h => h.id === hikeType.id)}
-                                      onChange={(e) => {
-                                        if (e.target.checked) {
-                                          setSelectedHikeTypes([...selectedHikeTypes, { id: hikeType.id, price: hikeType.price }]);
-                                        } else {
-                                          setSelectedHikeTypes(selectedHikeTypes.filter(h => h.id !== hikeType.id));
-                                        }
-                                      }}
-                                      className="h-5 w-5 rounded cursor-pointer"
-                                    />
-                                  </td>
-                                  <td className="px-4 py-3 text-sm font-medium text-gray-900">{hikeType.name}</td>
-                                  <td className="px-4 py-3 text-sm text-right text-gray-700">₱{(hikeType.price || 0).toLocaleString('en-PH')}</td>
-                                  <td className="px-4 py-3 text-center">
-                                    <div className="flex gap-2 justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                      <button
-                                        type="button"
-                                        onClick={async () => {
-                                          try {
-                                            // Fetch full hike type details from API
-                                            const response = await fetch(`/api/hike-types/${hikeType.id}`);
-                                            if (!response.ok) {
-                                              // If API doesn't have full details, use what we have
-                                              setEditingHikeType({
-                                                id: hikeType.id,
-                                                name: hikeType.name,
-                                                description: hikeType.description || "",
-                                                duration: hikeType.duration || "",
-                                                fitness: hikeType.fitness || "Beginner",
-                                                price: hikeType.price || 0
-                                              });
-                                              return;
-                                            }
-                                            const data = await response.json();
-                                            setEditingHikeType({
-                                              id: data.id,
-                                              name: data.name,
-                                              description: data.description || "",
-                                              duration: data.duration || "",
-                                              fitness: data.fitness || "Beginner",
-                                              price: data.price || 0
-                                            });
-                                          } catch (error) {
-                                            console.error('Error fetching hike type details:', error);
-                                            // Fallback to available data
-                                            setEditingHikeType({
-                                              id: hikeType.id,
-                                              name: hikeType.name,
-                                              description: hikeType.description || "",
-                                              duration: hikeType.duration || "",
-                                              fitness: hikeType.fitness || "Beginner",
-                                              price: hikeType.price || 0
-                                            });
-                                          }
-                                        }}
-                                        className="p-1.5 text-blue-600 hover:bg-blue-100 rounded transition-colors"
-                                        title="Edit"
-                                      >
-                                        <Edit size={14} />
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => deleteHikeType(hikeType.id)}
-                                        disabled={isDeletingHikeType}
-                                        className="p-1.5 text-red-600 hover:bg-red-100 disabled:opacity-50 rounded transition-colors"
-                                        title="Delete"
-                                      >
-                                        <Trash2 size={14} />
-                                      </button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))
-                            ) : (
-                              <tr>
-                                <td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-500">No hike types available</td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Add-Ons Section */}
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between pb-2 border-b-2 border-gray-300">
-                      <h3 className="text-lg font-semibold text-gray-900">Add-Ons</h3>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setNewAddOnForm({ name: "", description: "", price: "" });
-                          setIsAddAddOnModalOpen(true);
-                        }}
-                        className="flex items-center gap-2 rounded-lg bg-primary-600 text-white px-3 py-1.5 text-xs font-semibold hover:bg-primary-700 active:scale-95 transition-all shadow-sm"
-                      >
-                        <Plus size={16} /> Add
-                      </button>
-                    </div>
-                    <div className="flex flex-col">
-                      <h4 className="text-sm font-semibold text-gray-900 mb-3">Available Add-Ons</h4>
-                      <div className="flex-1 border border-gray-200 rounded-lg overflow-hidden bg-white">
-                        <table className="w-full">
-                          <thead>
-                            <tr className="bg-gradient-to-r from-gray-100 to-gray-50 border-b border-gray-200">
-                              <th className="w-12 px-4 py-3 text-left"><input type="checkbox" className="h-5 w-5 rounded cursor-pointer" disabled /></th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Name</th>
-                              <th className="w-24 px-4 py-3 text-right text-xs font-semibold text-gray-700">Price</th>
-                              <th className="w-16 px-4 py-3 text-center text-xs font-semibold text-gray-700">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {availableAddOns.length > 0 ? (
-                              availableAddOns.map((addOn) => (
-                                <tr key={addOn.id} className="border-b border-gray-100 hover:bg-primary-50 transition-colors group">
-                                  <td className="px-4 py-3">
-                                    <input
-                                      type="checkbox"
-                                      checked={selectedAddOns.some(a => a.id === addOn.id)}
-                                      onChange={(e) => {
-                                        if (e.target.checked) {
-                                          setSelectedAddOns([...selectedAddOns, { id: addOn.id, price: addOn.price }]);
-                                        } else {
-                                          setSelectedAddOns(selectedAddOns.filter(a => a.id !== addOn.id));
-                                        }
-                                      }}
-                                      className="h-5 w-5 rounded cursor-pointer"
-                                    />
-                                  </td>
-                                  <td className="px-4 py-3 text-sm font-medium text-gray-900">{addOn.name}</td>
-                                  <td className="px-4 py-3 text-sm text-right text-gray-700">₱{(addOn.price || 0).toLocaleString('en-PH')}</td>
-                                  <td className="px-4 py-3 text-center">
-                                    <div className="flex gap-2 justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                      <button
-                                        type="button"
-                                        onClick={async () => {
-                                          try {
-                                            // Fetch full add-on details from API
-                                            const response = await fetch(`/api/add-ons/${addOn.id}`);
-                                            if (!response.ok) {
-                                              // If API doesn't have full details, use what we have
-                                              setEditingAddOn({
-                                                id: addOn.id,
-                                                name: addOn.name,
-                                                description: addOn.description || "",
-                                                price: addOn.price || 0
-                                              });
-                                              return;
-                                            }
-                                            const data = await response.json();
-                                            setEditingAddOn({
-                                              id: data.id,
-                                              name: data.name,
-                                              description: data.description || "",
-                                              price: data.price || 0
-                                            });
-                                          } catch (error) {
-                                            console.error('Error fetching add-on details:', error);
-                                            // Fallback to available data
-                                            setEditingAddOn({
-                                              id: addOn.id,
-                                              name: addOn.name,
-                                              description: addOn.description || "",
-                                              price: addOn.price || 0
-                                            });
-                                          }
-                                        }}
-                                        className="p-1.5 text-blue-600 hover:bg-blue-100 rounded transition-colors"
-                                        title="Edit"
-                                      >
-                                        <Edit size={14} />
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => deleteAddOn(addOn.id)}
-                                        disabled={isDeletingAddOn}
-                                        className="p-1.5 text-red-600 hover:bg-red-100 disabled:opacity-50 rounded transition-colors"
-                                        title="Delete"
-                                      >
-                                        <Trash2 size={14} />
-                                      </button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))
-                            ) : (
-                              <tr>
-                                <td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-500">No add-ons available</td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Form Actions */}
-              <div className="flex gap-4 pt-6 border-t-2 border-gray-200">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsEditModalOpen(false);
-                    setEditingMountain(null);
-                  }}
-                  disabled={isSavingEdit}
-                  className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSavingEdit}
-                  className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-white transition-all duration-500 disabled:cursor-not-allowed ${editSavedPulse
-                      ? "bg-emerald-500 shadow-lg shadow-emerald-500/50 scale-[1.03]"
-                      : "bg-primary-600 hover:bg-primary-700 active:scale-95 shadow-md"
-                    } ${isSavingEdit ? "opacity-90" : ""}`}
-                >
-                  {isSavingEdit ? (
-                    <>
-                      {editSavedPulse ? (
-                        <>
-                          <Check size={16} className="animate-bounce" style={{ animationDuration: "0.6s" }} />
-                          <span className="animate-pulse">Saved!</span>
-                        </>
-                      ) : (
-                        <>
-                          <Loader2 size={16} className="animate-spin" />
-                          Saving...
-                        </>
-                      )}
-                    </>
+                {/* Preview */}
+                <div className="w-full aspect-[5/3] rounded-2xl overflow-hidden bg-gray-200 border border-gray-200 relative shadow-inner flex items-center justify-center">
+                  {editImagePreview ? (
+                    <img src={editImagePreview} alt="Preview" className="w-full h-full object-cover" />
+                  ) : editForm.imageUrl ? (
+                    <img src={editForm.imageUrl} alt="Current" className="w-full h-full object-cover" />
                   ) : (
-                    <>Save Changes</>
+                    <div className="flex flex-col items-center gap-2 text-gray-400">
+                      <ImageIcon size={32} />
+                      <span className="text-xs text-center font-medium">No image<br />available</span>
+                    </div>
                   )}
-                </button>
+                </div>
+
+                {/* Upload Button */}
+                <label className="w-full cursor-pointer group">
+                  <div className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-300 px-4 py-3 text-sm font-bold text-gray-600 group-hover:border-primary-400 group-hover:text-primary-600 group-hover:bg-primary-50 transition-all">
+                    <Upload size={18} />
+                    {editImagePreview || editForm.imageUrl ? "Change Image" : "Upload Image"}
+                  </div>
+                  <input type="file" accept="image/*" className="hidden" onChange={handleEditImageChange} />
+                </label>
+
+                {(editImagePreview || editForm.imageUrl) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditImagePreview(null);
+                      setEditCroppedBlob(null);
+                      setEditForm(prev => ({ ...prev, imageUrl: "" }));
+                    }}
+                    className="text-xs font-bold text-red-500 hover:text-red-700 transition-colors text-center"
+                  >
+                    Remove image
+                  </button>
+                )}
+
+                <div className="mt-auto p-4 rounded-xl bg-blue-50 border border-blue-100">
+                  <p className="text-[11px] text-blue-600 font-medium leading-relaxed">
+                    <strong>Tip:</strong> Use a high-quality landscape image (5:2 ratio) for the best appearance on the mountain details page.
+                  </p>
+                </div>
               </div>
+
+              {/* Center/Right: Form Content */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                <div className="max-w-5xl mx-auto space-y-6">
+                  {/* General Info Section */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <div className="h-4 w-1 bg-primary-600 rounded-full" />
+                      <h3 className="text-base font-bold text-gray-900 tracking-tight">General Information</h3>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 bg-white rounded-xl">
+                      <div>
+                        <label className="mb-0.5 block text-[10px] font-bold text-gray-500 uppercase tracking-wider">Name</label>
+                        <input
+                          type="text"
+                          value={editForm.name}
+                          onChange={(e) => setEditForm((prev) => ({ ...prev, name: e.target.value }))}
+                          className="w-full rounded-lg border border-gray-300 px-3 py-1 text-xs focus:border-transparent focus:ring-2 focus:ring-primary-600"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-0.5 block text-[10px] font-bold text-gray-500 uppercase tracking-wider">Description</label>
+                        <textarea
+                          rows={2}
+                          value={editForm.description}
+                          onChange={(e) => setEditForm((prev) => ({ ...prev, description: e.target.value }))}
+                          className="w-full rounded-lg border border-gray-300 px-3 py-1 text-xs focus:border-transparent focus:ring-2 focus:ring-primary-600"
+                          placeholder="Brief overview"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-0.5 block text-[10px] font-bold text-gray-500 uppercase tracking-wider">Inclusions</label>
+                        <textarea
+                          rows={2}
+                          value={editForm.inclusions}
+                          onChange={(e) => setEditForm((prev) => ({ ...prev, inclusions: e.target.value }))}
+                          className="w-full rounded-lg border border-gray-300 px-3 py-1 text-xs focus:border-transparent focus:ring-2 focus:ring-primary-600"
+                          placeholder="What's included in this hike package"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-0.5 block text-[10px] font-bold text-gray-500 uppercase tracking-wider">Location</label>
+                        <input
+                          type="text"
+                          value={editForm.location}
+                          onChange={(e) => setEditForm((prev) => ({ ...prev, location: e.target.value }))}
+                          className="w-full rounded-lg border border-gray-300 px-3 py-1 text-xs focus:border-transparent focus:ring-2 focus:ring-primary-500 transition-all"
+                          placeholder="e.g., Davao del Sur"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-4">
+                        <div>
+                            <label className="mb-0.5 block text-[10px] font-bold text-gray-500 uppercase tracking-wider">Difficulty</label>
+                            <select
+                              value={editForm.difficulty}
+                              onChange={(e) => setEditForm((prev) => ({ ...prev, difficulty: e.target.value }))}
+                              className="w-full rounded-lg border border-gray-300 px-2 py-1 text-xs focus:border-transparent focus:ring-2 focus:ring-primary-500 transition-all bg-white"
+                            >
+                              <option>Beginner</option>
+                              <option>Intermediate</option>
+                              <option>Advanced</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="mb-0.5 block text-[10px] font-bold text-gray-500 uppercase tracking-wider">Elevation (m)</label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={editForm.elevationMeters}
+                              onChange={(e) => setEditForm((prev) => ({ ...prev, elevationMeters: e.target.value }))}
+                              className="w-full rounded-lg border border-gray-300 px-3 py-1 text-xs focus:border-transparent focus:ring-2 focus:ring-primary-500 transition-all"
+                            />
+                        </div>
+                        <div>
+                            <label className="mb-0.5 block text-[10px] font-bold text-gray-500 uppercase tracking-wider">Capacity</label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={editForm.maxParticipants}
+                              onChange={(e) => setEditForm((prev) => ({ ...prev, maxParticipants: e.target.value }))}
+                              className="w-full rounded-lg border border-gray-300 px-3 py-1 text-xs focus:border-transparent focus:ring-2 focus:ring-primary-500 transition-all"
+                            />
+                        </div>
+                      </div>
+
+                      <label className="flex items-center gap-3 text-sm font-bold text-gray-700 pt-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={editForm.isActive}
+                          onChange={(e) => setEditForm((prev) => ({ ...prev, isActive: e.target.checked }))}
+                          className="h-5 w-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                        />
+                        Status: {editForm.isActive ? <span className="text-green-600">Active</span> : <span className="text-gray-400">Inactive</span>}
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Hike Types and Add-Ons Section */}
+                  <div className="space-y-8">
+                    <div className="flex items-center gap-2">
+                      <div className="h-4 w-1 bg-primary-600 rounded-full" />
+                      <h3 className="text-base font-bold text-gray-900 tracking-tight">Package Components</h3>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      {/* Hike Types Section */}
+                      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
+                        <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
+                          <div>
+                            <h4 className="font-bold text-gray-900">Hike Types</h4>
+                            <p className="text-[11px] text-gray-500 font-medium">Select available durations and fitness levels</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNewHikeTypeForm({ name: "", description: "", duration: "", fitness: "Beginner", price: "" });
+                              setIsAddHikeTypeModalOpen(true);
+                            }}
+                            className="flex items-center gap-1.5 rounded-lg bg-primary-600 text-white px-3 py-1.5 text-[10px] font-bold hover:bg-primary-700 active:scale-95 transition-all shadow-md shadow-primary-600/10"
+                          >
+                            <Plus size={14} /> New Type
+                          </button>
+                        </div>
+
+                        <div className="flex-1 min-h-[300px]">
+                          <table className="w-full text-left border-collapse">
+                            <thead>
+                              <tr className="bg-gray-50/30">
+                                <th className="w-12 px-5 py-4 border-b border-gray-100"><span className="sr-only">Select</span></th>
+                                <th className="px-2 py-4 border-b border-gray-100 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Name</th>
+                                <th className="px-4 py-4 border-b border-gray-100 text-[10px] font-bold text-gray-400 uppercase tracking-widest text-right">Price</th>
+                                <th className="w-20 px-5 py-4 border-b border-gray-100 text-center"><span className="sr-only">Actions</span></th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50">
+                              {availableHikeTypes.length > 0 ? (
+                                availableHikeTypes.map((hikeType) => (
+                                  <tr key={hikeType.id} className="group hover:bg-primary-50/30 transition-colors">
+                                    <td className="px-5 py-4">
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedHikeTypes.some(h => h.id === hikeType.id)}
+                                        onChange={(e) => {
+                                          if (e.target.checked) {
+                                            setSelectedHikeTypes([...selectedHikeTypes, { id: hikeType.id, price: hikeType.price }]);
+                                          } else {
+                                            setSelectedHikeTypes(selectedHikeTypes.filter(h => h.id !== hikeType.id));
+                                          }
+                                        }}
+                                        className="h-5 w-5 rounded-lg border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
+                                      />
+                                    </td>
+                                    <td className="px-2 py-4">
+                                      <div className="font-bold text-sm text-gray-900">{hikeType.name}</div>
+                                      <div className="text-[10px] text-gray-400 font-medium truncate max-w-[120px]">{hikeType.description || "No description"}</div>
+                                    </td>
+                                    <td className="px-4 py-4 text-sm font-bold text-gray-700 text-right">₱{(hikeType.price || 0).toLocaleString('en-PH')}</td>
+                                    <td className="px-5 py-4">
+                                      <div className="flex gap-2 justify-end opacity-0 group-hover:opacity-100 transition-all transform translate-x-1 group-hover:translate-x-0">
+                                        <button
+                                          type="button"
+                                          onClick={async () => {
+                                            try {
+                                              const response = await fetch(`/api/hike-types/${hikeType.id}`);
+                                              const data = response.ok ? await response.json() : hikeType;
+                                              setEditingHikeType({
+                                                id: data.id,
+                                                name: data.name,
+                                                description: data.description || "",
+                                                duration: data.duration || "",
+                                                fitness: data.fitness || "Beginner",
+                                                price: data.price || 0
+                                              });
+                                            } catch (error) {
+                                              setEditingHikeType({ ...hikeType, description: hikeType.description || "", duration: hikeType.duration || "", fitness: hikeType.fitness || "Beginner" });
+                                            }
+                                          }}
+                                          className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                                        >
+                                          <Edit size={14} />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => deleteHikeType(hikeType.id)}
+                                          className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                        >
+                                          <Trash2 size={14} />
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))
+                              ) : (
+                                <tr>
+                                  <td colSpan={4} className="px-6 py-20 text-center">
+                                    <div className="flex flex-col items-center gap-2 text-gray-400">
+                                      <Plus size={32} strokeWidth={1.5} />
+                                      <p className="text-xs font-medium">No hike types yet</p>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      {/* Add-Ons Section */}
+                      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
+                        <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
+                          <div>
+                            <h4 className="font-bold text-gray-900">Add-Ons</h4>
+                            <p className="text-[11px] text-gray-500 font-medium">Optional extras like gear or meals</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNewAddOnForm({ name: "", description: "", price: "" });
+                              setIsAddAddOnModalOpen(true);
+                            }}
+                            className="flex items-center gap-1.5 rounded-lg bg-primary-600 text-white px-3 py-1.5 text-[10px] font-bold hover:bg-primary-700 active:scale-95 transition-all shadow-md shadow-primary-600/10"
+                          >
+                            <Plus size={14} /> New Add-On
+                          </button>
+                        </div>
+
+                        <div className="flex-1 min-h-[300px]">
+                          <table className="w-full text-left border-collapse">
+                            <thead>
+                              <tr className="bg-gray-50/30">
+                                <th className="w-12 px-5 py-4 border-b border-gray-100"><span className="sr-only">Select</span></th>
+                                <th className="px-2 py-4 border-b border-gray-100 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Name</th>
+                                <th className="px-4 py-4 border-b border-gray-100 text-[10px] font-bold text-gray-400 uppercase tracking-widest text-right">Price</th>
+                                <th className="w-20 px-5 py-4 border-b border-gray-100 text-center"><span className="sr-only">Actions</span></th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50">
+                              {availableAddOns.length > 0 ? (
+                                availableAddOns.map((addOn) => (
+                                  <tr key={addOn.id} className="group hover:bg-primary-50/30 transition-colors">
+                                    <td className="px-5 py-4">
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedAddOns.some(a => a.id === addOn.id)}
+                                        onChange={(e) => {
+                                          if (e.target.checked) {
+                                            setSelectedAddOns([...selectedAddOns, { id: addOn.id, price: addOn.price }]);
+                                          } else {
+                                            setSelectedAddOns(selectedAddOns.filter(a => a.id !== addOn.id));
+                                          }
+                                        }}
+                                        className="h-5 w-5 rounded-lg border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
+                                      />
+                                    </td>
+                                    <td className="px-2 py-4">
+                                      <div className="font-bold text-sm text-gray-900">{addOn.name}</div>
+                                      <div className="text-[10px] text-gray-400 font-medium truncate max-w-[120px]">{addOn.description || "No description"}</div>
+                                    </td>
+                                    <td className="px-4 py-4 text-sm font-bold text-gray-700 text-right">₱{(addOn.price || 0).toLocaleString('en-PH')}</td>
+                                    <td className="px-5 py-4">
+                                      <div className="flex gap-2 justify-end opacity-0 group-hover:opacity-100 transition-all transform translate-x-1 group-hover:translate-x-0">
+                                        <button
+                                          type="button"
+                                          onClick={async () => {
+                                            try {
+                                              const response = await fetch(`/api/add-ons/${addOn.id}`);
+                                              const data = response.ok ? await response.json() : addOn;
+                                              setEditingAddOn({
+                                                id: data.id,
+                                                name: data.name,
+                                                description: data.description || "",
+                                                price: data.price || 0
+                                              });
+                                            } catch (error) {
+                                              setEditingAddOn({ ...addOn, description: addOn.description || "" });
+                                            }
+                                          }}
+                                          className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                                        >
+                                          <Edit size={14} />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => deleteAddOn(addOn.id)}
+                                          className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                        >
+                                          <Trash2 size={14} />
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))
+                              ) : (
+                                <tr>
+                                  <td colSpan={4} className="px-6 py-20 text-center">
+                                    <div className="flex flex-col items-center gap-2 text-gray-400">
+                                      <Plus size={32} strokeWidth={1.5} />
+                                      <p className="text-xs font-medium">No add-ons yet</p>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
             </form>
+
+            {/* Form Actions */}
+            <div className="flex gap-4 px-8 py-6 border-t border-gray-100 bg-white flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsEditModalOpen(false);
+                  setEditingMountain(null);
+                  setEditImagePreview(null);
+                  setEditCroppedBlob(null);
+                }}
+                disabled={isSavingEdit}
+                className="flex-1 rounded-xl border border-gray-300 px-6 py-3.5 text-sm font-bold text-gray-700 hover:bg-gray-50 transition-all disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="edit-mountain-form"
+                disabled={isSavingEdit}
+                className={`flex-[2] flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-sm font-bold text-white transition-all duration-300 disabled:cursor-not-allowed ${editSavedPulse
+                  ? "bg-emerald-500 shadow-lg shadow-emerald-500/20 scale-[1.02]"
+                  : "bg-primary-600 hover:bg-primary-700 active:scale-95 shadow-lg shadow-primary-600/20"
+                  } ${isSavingEdit ? "opacity-90" : ""}`}
+              >
+                {isSavingEdit ? (
+                  <>
+                    {editSavedPulse ? (
+                      <>
+                        <Check size={20} className="animate-bounce" />
+                        <span>Changes Saved!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Loader2 size={20} className="animate-spin" />
+                        <span>Updating Mountain...</span>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <Check size={20} />
+                    <span>Save Mountain Details</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Edit Crop Modal */}
+            {showEditCropModal && editCropImage && (
+              <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+                <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+                  <h3 className="mb-1 text-lg font-bold text-gray-900">Crop Mountain Image</h3>
+                  <p className="mb-4 text-xs text-gray-500">Perfectly frame your mountain banner</p>
+                  <div className="relative h-60 w-full overflow-hidden rounded-2xl bg-gray-900 shadow-inner">
+                    <CropperWidget
+                      image={editCropImage}
+                      crop={editCrop}
+                      zoom={editZoom}
+                      aspect={ADD_IMAGE_ASPECT}
+                      onCropChange={setEditCrop}
+                      onZoomChange={setEditZoom}
+                      onCropComplete={onEditCropComplete}
+                    />
+                  </div>
+                  <div className="mt-5">
+                    <div className="flex justify-between mb-2">
+                      <label className="text-xs font-bold text-gray-600 uppercase tracking-wider">Zoom Level</label>
+                      <span className="text-xs font-bold text-primary-600">{editZoom.toFixed(1)}x</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={1}
+                      max={3}
+                      step={0.01}
+                      value={editZoom}
+                      onChange={(e) => setEditZoom(Number(e.target.value))}
+                      className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary-600"
+                    />
+                  </div>
+                  <div className="mt-6 flex gap-3">
+                    <button
+                      type="button"
+                      onClick={handleEditCropCancel}
+                      disabled={isEditCropping}
+                      className="flex-1 rounded-xl border border-gray-300 px-4 py-3 text-sm font-bold text-gray-700 hover:bg-gray-50 transition-all disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleEditCropSave}
+                      disabled={isEditCropping}
+                      className="flex-[2] flex items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 py-3 text-sm font-bold text-white hover:bg-primary-700 disabled:opacity-50 transition-all shadow-md shadow-primary-600/20"
+                    >
+                      {isEditCropping ? <><Loader2 size={18} className="animate-spin" /> Processing...</> : "Confirm Crop"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
 
       {/* Edit Hike Type Modal */}
       {editingHikeType && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
             <h3 className="mb-4 text-lg font-bold text-gray-900">Edit Hike Type</h3>
             <div className="space-y-4">
@@ -1602,7 +1888,7 @@ export default function MountainManagement() {
 
       {/* Edit Add-On Modal */}
       {editingAddOn && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
             <h3 className="mb-4 text-lg font-bold text-gray-900">Edit Add-On</h3>
             <div className="space-y-4">
@@ -1659,7 +1945,7 @@ export default function MountainManagement() {
 
       {/* Add New Hike Type Modal */}
       {isAddHikeTypeModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
             <h3 className="mb-4 text-lg font-bold text-gray-900">Add New Hike Type</h3>
             <div className="space-y-4">
@@ -1762,7 +2048,7 @@ export default function MountainManagement() {
 
       {/* Add New Add-On Modal */}
       {isAddAddOnModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
             <h3 className="mb-4 text-lg font-bold text-gray-900">Add New Add-On</h3>
             <div className="space-y-4">
@@ -1835,14 +2121,14 @@ export default function MountainManagement() {
 
       {/* Delete Hike Type Confirmation Modal */}
       {hikeTypeToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-2xl">
             <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-red-100">
               <AlertCircle className="text-red-600" size={24} />
             </div>
             <h3 className="mb-2 text-lg font-bold text-center text-gray-900">Delete Hike Type?</h3>
             <p className="mb-6 text-sm text-center text-gray-600">
-              Are you sure you want to permanently delete <span className="font-semibold text-gray-900">"{hikeTypeToDelete.name}"</span>? This action cannot be undone.
+              Are you sure you want to permanently delete <span className="font-semibold text-gray-900">&quot;{hikeTypeToDelete.name}&quot;</span>? This action cannot be undone.
             </p>
             <div className="flex gap-3">
               <button
@@ -1878,14 +2164,14 @@ export default function MountainManagement() {
 
       {/* Delete Add-On Confirmation Modal */}
       {addOnToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-2xl">
             <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-red-100">
               <AlertCircle className="text-red-600" size={24} />
             </div>
             <h3 className="mb-2 text-lg font-bold text-center text-gray-900">Delete Add-On?</h3>
             <p className="mb-6 text-sm text-center text-gray-600">
-              Are you sure you want to permanently delete <span className="font-semibold text-gray-900">"{addOnToDelete.name}"</span>? This action cannot be undone.
+              Are you sure you want to permanently delete <span className="font-semibold text-gray-900">&quot;{addOnToDelete.name}&quot;</span>? This action cannot be undone.
             </p>
             <div className="flex gap-3">
               <button
@@ -1921,7 +2207,7 @@ export default function MountainManagement() {
 
       {/* Delete Confirmation Modals */}
       {deletingMountainId !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-2xl">
             <h3 className="mb-4 text-lg font-bold text-gray-900">Delete Mountain</h3>
             <p className="mb-6 text-sm text-gray-700">Are you sure you want to delete this mountain? This action cannot be undone.</p>
@@ -1950,7 +2236,7 @@ export default function MountainManagement() {
 
 
       {isDeleteModalOpen && deletingMountain && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
             <h2 className="mb-2 text-2xl font-bold text-gray-900">Confirm Delete</h2>
             <p className="mb-4 text-sm text-gray-600">
@@ -1982,8 +2268,8 @@ export default function MountainManagement() {
                 disabled={deleteConfirmText !== deletingMountain.name || isDeletingMountain}
                 onClick={confirmDeleteMountain}
                 className={`flex-1 flex items-center justify-center gap-2 rounded-lg px-4 py-2 font-semibold text-white transition-all duration-500 disabled:cursor-not-allowed ${deleteSuccess
-                    ? "bg-emerald-500 shadow-lg shadow-emerald-500/50 scale-[1.02]"
-                    : "bg-red-600 hover:bg-red-700 disabled:opacity-50"
+                  ? "bg-emerald-500 shadow-lg shadow-emerald-500/50 scale-[1.02]"
+                  : "bg-red-600 hover:bg-red-700 disabled:opacity-50"
                   } ${isDeletingMountain ? "opacity-90" : ""}`}
               >
                 {isDeletingMountain ? (

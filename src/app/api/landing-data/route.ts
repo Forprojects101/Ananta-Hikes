@@ -22,8 +22,9 @@ export async function GET(request: Request) {
     const [
       { data: mountains },
       { data: contentSettings },
-      { data: completedBookings },
+      { data: testimonials },
       { count: activeUsersCount },
+      { data: activePromotion },
     ] = await Promise.all([
       supabase
         .from("mountains")
@@ -36,21 +37,29 @@ export async function GET(request: Request) {
         .select("key, value")
         .in("key", ["mountain_selection_heading", "testimonials_heading", "hero_subtitle"]),
       supabase
-        .from("bookings")
-        .select("notes, mountains!bookings_mountain_id_fkey(name), users!bookings_hiker_id_fkey(full_name)")
-        .eq("status", "completed")
+        .from("testimonials")
+        .select("name, profile_url, star_rate, testimonial_text")
+        .eq("is_active", true)
+        .eq("is_approved", true)
         .order("created_at", { ascending: false })
-        .limit(8),
+        .limit(6),
       supabase
         .from("users")
         .select("id", { count: "exact", head: true })
         .eq("status", "active"),
+      supabase
+        .from("promotions")
+        .select("*")
+        .eq("is_active", true)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
     ]);
 
     console.log("✅ [/api/landing-data] Successfully fetched:", {
       mountainsCount: mountains?.length || 0,
       contentSettingsCount: contentSettings?.length || 0,
-      completedBookingsCount: completedBookings?.length || 0,
+      testimonialsCount: (testimonials as any)?.length || 0,
       activeUsersCount: activeUsersCount || 0
     });
 
@@ -66,8 +75,9 @@ export async function GET(request: Request) {
       JSON.stringify({
         mountains: mountains || [],
         contentSettings: contentSettings || [],
-        completedBookings: completedBookings || [],
+        testimonials: testimonials || [],
         activeUsersCount: activeUsersCount || 0,
+        activePromotion: activePromotion || null,
         fetchedAt: fetchTime, // Include timestamp in response
       }),
       { 

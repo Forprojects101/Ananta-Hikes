@@ -39,6 +39,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     }
 
     const updates: Record<string, unknown> = { status };
+    if (body.guide_id) updates.guide_id = String(body.guide_id);
 
     if (status === "approved") {
       updates.approved_by = token;
@@ -50,11 +51,15 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       updates.cancellation_reason = body?.reason ? String(body.reason) : null;
     }
 
+    if (status === "completed") {
+      updates.completed_at = new Date().toISOString();
+    }
+
     const { data, error } = await supabase
       .from("bookings")
       .update(updates)
       .eq("id", params.id)
-      .select("id, hike_type, start_date, participants, total_price, status, notes, users!bookings_hiker_id_fkey(full_name, email), mountains!bookings_mountain_id_fkey(name)")
+      .select("id, hike_type, start_date, participants, total_price, status, notes, add_ons, users!bookings_hiker_id_fkey(full_name, email), mountains!bookings_mountain_id_fkey(name)")
       .single();
 
     if (error) return NextResponse.json({ message: error.message }, { status: 500 });
@@ -84,12 +89,25 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
             day: "numeric",
           });
 
+          // Format add-ons
+          let addOnsString = "None";
+          if (Array.isArray(data.add_ons) && data.add_ons.length > 0) {
+            const selectedNames = data.add_ons
+              .filter((a: any) => (typeof a === "object" ? a.selected !== false : true))
+              .map((a: any) => (typeof a === "object" ? a.name : a))
+              .filter(Boolean);
+            if (selectedNames.length > 0) {
+              addOnsString = selectedNames.join(", ");
+            }
+          }
+
           // Send approval email
           await sendBookingApprovalEmail(userEmail, {
             bookingId: data.id,
             referenceNumber: noteData.referenceNumber || data.id,
             mountainName: mountainData?.name || "Mountain",
             hikeType: data.hike_type || "Hike",
+            addOns: addOnsString,
             date: bookingDate,
             participants: data.participants || 1,
             totalPrice: parseFloat(data.total_price) || 0,

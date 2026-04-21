@@ -1,121 +1,142 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import {
-  isValidEmailDomain,
-  verifyPassword,
-} from "@/lib/auth";
+import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { 
+  validateAuthInputs, 
+  comparePassword, 
+  signAccessToken, 
+  generateRefreshToken, 
+  hashToken, 
+  setRefreshTokenCookie,
+  insertRefreshToken
+} from "@/lib/auth-secure";
 
-function getSupabaseServerClient() {
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!serviceRoleKey) {
-    throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set");
-  }
-
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    serviceRoleKey
-  );
-}
-
-function mapUser(row: Record<string, any>) {
-  // Handle both array and object forms of roles relationship
-  const rolesData = Array.isArray(row.roles) && row.roles[0] ? row.roles[0] : row.roles;
-  
-  return {
-    id: row.id,
-    email: row.email,
-    fullName: row.full_name,
-    phone: row.phone,
-    profileImageUrl: row.profile_image_url,
-    emailVerified: row.email_verified,
-    verifiedAt: row.verified_at,
-    roleId: row.role_id,
-    role: rolesData || undefined,
-    status: row.status,
-    lastLogin: row.last_login,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
-}
+const REFRESH_TOKEN_EXPIRY_DAYS = 30;
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password } = await request.json();
-    const supabase = getSupabaseServerClient();
+    // 1. Sanitize and Validate Inputs
+    const body = await request.json();
+    const email = body.email?.trim()?.toLowerCase();
+    const password = body.password;
 
-    // Validate email
-    if (!email || !password) {
+    if (!validateAuthInputs(email, password)) {
       return NextResponse.json(
-        { message: "Email and password are required" },
+        { message: "Invalid email or password format" },
         { status: 400 }
       );
     }
 
-    // Validate email domain
-    if (!isValidEmailDomain(email)) {
-      return NextResponse.json(
-        {
-          message:
-            "Only @gmail.com and @yahoo.com emails are allowed",
-        },
-        { status: 400 }
-      );
-    }
+    const supabase = getSupabaseAdmin();
 
-    const { data: dbUser, error: userError } = await supabase
+    // Generic 401 response — never reveal whether the email exists
+    const invalidResponse = NextResponse.json(
+      { message: "Invalid email or password" },
+      { status: 401 }
+    );
+
+    // 2. Lookup user — only select columns that exist in your schema
+    const { data: user, error: userError } = await supabase
       .from("users")
-      .select(
-        "id,email,password_hash,full_name,phone,profile_image_url,email_verified,verified_at,role_id,status,last_login,created_at,updated_at,roles(*)"
-      )
+      .select("id, email, full_name, profile_image_url, password_hash, status, email_verified, roles(id, name)")
       .eq("email", email)
       .maybeSingle();
-    
-    console.log("🔐 [/api/auth/login] User found:", { email, roleData: dbUser?.roles, roleId: dbUser?.role_id });
 
-    if (userError || !dbUser) {
+    if (userError) {
+      console.error("❌ [Login] Database error:", userError);
+      return invalidResponse;
+    }
+
+    if (!user) {
+      console.warn(`⚠️ [Login] No user found for email: ${email}`);
+      return invalidResponse;
+    }
+
+    // 3. Check account status first
+    if (user.status !== "active") {
       return NextResponse.json(
-        { message: "Invalid email or password" },
+        { message: "Account is not active. Please contact support." },
+        { status: 403 }
+      );
+    }
+
+    // 4. Detect Google-only accounts (placeholder hash, no real password)
+    if (!user.password_hash) {
+      console.warn(`⚠️ [Login] No password set for: ${email}`);
+      return NextResponse.json(
+        { message: "This account uses Google Sign-In. Please use the 'Continue with Google' button." },
         { status: 401 }
       );
     }
 
-    if (!verifyPassword(password, dbUser.password_hash)) {
-      return NextResponse.json(
-        { message: "Invalid email or password" },
-        { status: 401 }
-      );
+    // 5. Verify password
+    console.log(`🔍 [Login] Comparing password for: ${email}`);
+    const isMatch = await comparePassword(password, user.password_hash);
+
+    if (!isMatch) {
+      console.warn(`❌ [Login] Password mismatch for: ${email}`);
+      return invalidResponse;
     }
 
-    const { data: updatedUser } = await supabase
+    console.log(`✅ [Login] Success for: ${email}`);
+
+    // 6. Update last_login timestamp
+    await supabase
       .from("users")
       .update({ last_login: new Date().toISOString() })
-      .eq("id", dbUser.id)
-      .select(
-        "id,email,full_name,phone,profile_image_url,email_verified,verified_at,role_id,status,last_login,created_at,updated_at,roles(*)"
-      )
-      .single();
-    
-    console.log("🔐 [/api/auth/login] Updated user:", { 
-      email, 
-      roleData: (updatedUser || dbUser)?.roles,
-      roleId: (updatedUser || dbUser)?.role_id,
-      status: (updatedUser || dbUser)?.status
+      .eq("id", user.id);
+
+    // 7. Generate tokens
+    const roleObj = Array.isArray(user.roles) ? user.roles[0] : user.roles;
+    const roleName = roleObj?.name || "Hiker";
+
+    const accessToken = signAccessToken({ 
+      userId: user.id, 
+      role: roleName
     });
 
-    const user = mapUser(updatedUser || dbUser);
+    const refreshToken = generateRefreshToken();
+    const hashedRefreshToken = hashToken(refreshToken);
+    const expiresAt = new Date(
+      Date.now() + REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000
+    ).toISOString();
 
-    // Set cookie
-    const res = NextResponse.json(user, { status: 200 });
-    res.cookies.set("auth-token", user.id, {
-      httpOnly: true,
-      maxAge: 60 * 60 * 24 * 7,
+    // 8. Store refresh token in DB
+    const { error: rtError } = await insertRefreshToken(supabase, {
+      userId: user.id,
+      tokenHash: hashedRefreshToken,
+      expiresAt: expiresAt,
+      deviceInfo: request.headers.get("user-agent") || undefined,
+      ipAddress: request.headers.get("x-forwarded-for") || 
+                 request.headers.get("x-real-ip") || undefined,
     });
 
-    return res;
+    if (rtError) {
+      console.error("❌ [Login] Refresh token storage error:", rtError);
+      return NextResponse.json({ message: "Login failed — session error" }, { status: 500 });
+    }
+
+    // 9. Return full user profile for client hydration
+    const response = NextResponse.json({
+      accessToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        fullName: user.full_name,
+        profileImageUrl: user.profile_image_url,
+        emailVerified: user.email_verified,
+        role: roleName,
+        roleId: roleObj?.id,
+        status: user.status,
+      }
+    });
+
+    setRefreshTokenCookie(response, refreshToken);
+    return response;
+
   } catch (error) {
-    console.error("Login error:", error);
+    console.error("❌ [Login] Unexpected error:", error);
     return NextResponse.json(
-      { message: "Login failed" },
+      { message: "An unexpected error occurred" },
       { status: 500 }
     );
   }

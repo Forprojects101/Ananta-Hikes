@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { sendBookingConfirmation } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -8,6 +9,7 @@ type IncomingBooking = {
 	mountainId?: string;
 	mountainName?: string;
 	hikeTypeName?: string;
+	hikeTypePrice?: number;
 	participants?: number;
 	date?: string;
 	totalPrice?: number;
@@ -70,7 +72,8 @@ export async function POST(request: Request) {
 		const dbPayload = {
 			hiker_id: body.userId,
 			mountain_id: body.mountainId,
-			hike_type: mapHikeTypeToDb(body.hikeTypeName),
+			hike_type: body.hikeTypeName || "Day Hike",
+			guide_fee: Number(body.hikeTypePrice || 0),
 			start_date: body.date,
 			end_date: null,
 			participants: Math.max(1, Number(body.participants || 1)),
@@ -94,6 +97,35 @@ export async function POST(request: Request) {
 
 		if (error) {
 			return NextResponse.json({ message: error.message }, { status: 500 });
+		}
+
+		// Send initial confirmation email
+		try {
+			if (body.customerEmail) {
+				// Format add-ons for email
+				let addOnsString = "None";
+				if (Array.isArray(body.addOns) && body.addOns.length > 0) {
+					addOnsString = body.addOns
+						.filter(a => a.selected !== false)
+						.map(a => a.name)
+						.filter(Boolean)
+						.join(", ");
+					if (!addOnsString) addOnsString = "None";
+				}
+
+				await sendBookingConfirmation(body.customerEmail, {
+					bookingId: body.referenceNumber || data.id,
+					mountainName: body.mountainName || "Mountain",
+					hikeType: body.hikeTypeName || "Hike",
+					addOns: addOnsString,
+					date: body.date || "TBD",
+					participants: Number(body.participants || 1),
+					totalPrice: Number(body.totalPrice || 0),
+				});
+			}
+		} catch (emailError) {
+			console.error("Failed to send initial confirmation email:", emailError);
+			// Don't fail the booking if email fails
 		}
 
 		return NextResponse.json({ message: "Booking saved", booking: data }, { status: 201 });
@@ -130,7 +162,7 @@ export async function GET(request: Request) {
 		const { data, error } = await supabase
 			.from("bookings")
 			.select(
-				"id, hike_type, participants, total_price, status, start_date, end_date, reference_number, customer_phone, emergency_contact, payment_method, notes, created_at, mountains:mountain_id(name)"
+				"id, hike_type, participants, total_price, status, start_date, end_date, reference_number, customer_phone, emergency_contact, payment_method, notes, created_at, add_ons, mountains:mountain_id(name), guides:guide_id(full_name)"
 			)
 			.eq("hiker_id", hikerId)
 			.order("created_at", { ascending: false });
@@ -146,6 +178,17 @@ export async function GET(request: Request) {
 					noteData = JSON.parse(item.notes);
 				} catch {
 					noteData = {};
+				}
+			}
+
+			let addOnsString = "None";
+			if (Array.isArray(item.add_ons) && item.add_ons.length > 0) {
+				const selectedNames = item.add_ons
+					.filter((a: any) => (typeof a === "object" ? a.selected !== false : true))
+					.map((a: any) => (typeof a === "object" ? a.name : a))
+					.filter(Boolean);
+				if (selectedNames.length > 0) {
+					addOnsString = selectedNames.join(", ");
 				}
 			}
 
@@ -167,6 +210,8 @@ export async function GET(request: Request) {
 				customerPhone: item.customer_phone || (noteData.customerPhone as string) || undefined,
 				emergencyContact: item.emergency_contact || (noteData.emergencyContact as string) || undefined,
 				paymentMethod: item.payment_method || (noteData.paymentMethod as string) || undefined,
+				addOns: addOnsString,
+				tourGuide: Array.isArray(item.guides) ? item.guides[0]?.full_name : (item.guides as any)?.full_name || "Unassigned",
 			};
 		});
 

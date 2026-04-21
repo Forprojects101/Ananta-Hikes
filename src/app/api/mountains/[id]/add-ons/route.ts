@@ -28,11 +28,12 @@ export async function GET(
     const supabase = getSupabaseServerClient();
     const { id: mountainId } = params;
 
-    // Fetch add-ons with prices specific to this mountain from the junction table
-    const { data: mountainAddOns, error } = await supabase
-      .from("mountain_add_ons")
-      .select("id, add_on_id, price, add_ons(id, name, description)")
+    // Fetch add-ons directly from the add_ons table for this mountain
+    const { data: addOns, error } = await supabase
+      .from("add_ons")
+      .select("id, name, description, price")
       .eq("mountain_id", mountainId)
+      .eq("is_active", true)
       .order("created_at");
 
     if (error) {
@@ -43,16 +44,8 @@ export async function GET(
       );
     }
 
-    // Map the response to include all necessary fields
-    const addOns = mountainAddOns?.map((item: any) => ({
-      id: item.add_on_id,
-      name: item.add_ons?.name,
-      description: item.add_ons?.description,
-      price: item.price,
-    })) || [];
-
     return NextResponse.json({
-      addOns: addOns,
+      addOns: addOns || [],
       message: "Add-ons fetched successfully",
     });
   } catch (error) {

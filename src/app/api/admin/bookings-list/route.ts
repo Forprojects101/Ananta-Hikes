@@ -31,16 +31,30 @@ export async function GET() {
       .select(
         `
         id,
+        hike_type,
         start_date,
         end_date,
         participants,
         total_price,
         status,
+        cancellation_reason,
+        canceled_at,
+        completed_at,
+        approval_date,
         notes,
         created_at,
         updated_at,
+        customer_phone,
+        emergency_contact,
+        payment_method,
+        skill_level,
+        add_ons,
+        reference_number,
         users:hiker_id (full_name, email),
-        mountains:mountain_id (name)
+        mountains:mountain_id (name),
+        guides:guide_id (full_name, email),
+        approvers:approved_by (full_name, email),
+        joiners:joiner (id, status, participants)
       `
       )
       .order("created_at", { ascending: false });

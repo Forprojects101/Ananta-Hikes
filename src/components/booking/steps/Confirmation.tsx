@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { useBooking } from "@/context/BookingContext";
-import { FileText, Copy } from "lucide-react";
+import { FileText, Copy, Check } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 
 export default function Confirmation() {
   const { booking } = useBooking();
+  const [isCopied, setIsCopied] = useState(false);
 
   if (!booking) {
     return null;
@@ -14,7 +16,8 @@ export default function Confirmation() {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    alert("Reference number copied!");
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 2000);
   };
 
   return (
@@ -28,9 +31,31 @@ export default function Confirmation() {
             <h1 className="mb-1.5 text-lg font-black tracking-tight text-gray-950 sm:text-2xl">
               Booking Confirmed!
             </h1>
-            <p className="text-xs text-gray-600 sm:text-sm">
+            <p className="mb-4 text-xs text-gray-600 sm:text-sm">
               Your hiking adventure is secured. Check your email for details.
             </p>
+
+            <div className="mx-auto flex items-center justify-center gap-2 rounded-full bg-slate-50 px-4 py-2 border border-gray-100 max-w-fit">
+              <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 sm:text-xs">
+                Ref No:
+              </span>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-sm font-black text-primary-600 sm:text-base">
+                  {booking.referenceNumber}
+                </span>
+                <button
+                  onClick={() => copyToClipboard(booking.referenceNumber)}
+                  className="p-1 text-gray-400 hover:text-primary-600 transition-colors"
+                  title="Copy Reference Number"
+                >
+                  {isCopied ? (
+                    <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  ) : (
+                    <Copy className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
 
           <div className="mb-5 border-b border-gray-100 pb-4 sm:mb-5 sm:pb-5">
@@ -86,8 +111,8 @@ export default function Confirmation() {
             <ol className="list-inside list-decimal space-y-1 text-xs text-blue-900 sm:text-sm">
               <li>Check your email for the booking confirmation</li>
               <li>Complete payment using your preferred method</li>
-              <li>Receive trip details and guide contact information</li>
-              <li>Prepare your hiking gear and get ready!</li>
+              <li>Receive trip and guide details after approval</li>
+              <li>Prepare your hiking gear and get ready</li>
             </ol>
           </div>
 
@@ -96,7 +121,7 @@ export default function Confirmation() {
               Back to Home
             </Link>
             <button className="rounded-full bg-gradient-to-r from-primary-600 to-emerald-600 px-6 py-2.5 text-sm font-semibold text-white hover:shadow-lg" onClick={() => window.print()}>
-              Download Confirmation
+              Download
             </button>
           </div>
         </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from "@/context/AuthContext";
+import Image from "next/image";
 import { AlertTriangle, Check, Clock, Mail, MapPin, Phone, Trash2, Upload, RotateCcw, Maximize2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -11,7 +12,7 @@ import Cropper, { Area } from "react-easy-crop";
 import { getCroppedImage } from "@/lib/imageCrop";
 
 function DashboardProfileContent() {
-  const { user, logout, resendCode, verifyEmail } = useAuth();
+  const { user, logout, resendCode, verifyEmail, accessToken } = useAuth();
   const router = useRouter();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -158,6 +159,7 @@ function DashboardProfileContent() {
         headers: {
           "Content-Type": "application/json",
           "x-user-email": user.email,
+          ...(accessToken ? { "Authorization": `Bearer ${accessToken}` } : {}),
         },
         body: JSON.stringify(updateData),
       });
@@ -191,6 +193,7 @@ function DashboardProfileContent() {
         headers: {
           "Content-Type": "application/json",
           "x-user-email": user.email,
+          ...(accessToken ? { "Authorization": `Bearer ${accessToken}` } : {}),
         },
         body: JSON.stringify({
           profileImageUrl: avatarPreview,
@@ -299,6 +302,7 @@ function DashboardProfileContent() {
         headers: {
           "Content-Type": "application/json",
           "x-user-email": user.email,
+          ...(accessToken ? { "Authorization": `Bearer ${accessToken}` } : {}),
         },
       });
 
@@ -342,9 +346,14 @@ function DashboardProfileContent() {
             <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-7 xl:rounded-3xl xl:border-slate-200/80 xl:bg-white/95 xl:p-8 xl:shadow-xl">
               <div className="mb-6 flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-5 text-center sm:p-6 xl:border-slate-300/50 xl:bg-gradient-to-br xl:from-slate-50 xl:to-emerald-50/60 xl:p-7">
                 <label className="relative cursor-pointer">
-                  <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-full border-4 border-white shadow-lg xl:h-28 xl:w-28 xl:rounded-full xl:ring-2 xl:ring-emerald-100">
+                  <div className="relative h-24 w-24 flex-shrink-0 overflow-hidden rounded-full border-4 border-white shadow-lg xl:h-28 xl:w-28 xl:rounded-full xl:ring-2 xl:ring-emerald-100">
                     {avatarPreview ? (
-                      <img src={avatarPreview} alt="Profile avatar preview" className="h-full w-full object-cover rounded-full" />
+                      <Image 
+                        src={avatarPreview} 
+                        alt="Profile avatar preview" 
+                        fill
+                        className="object-cover" 
+                      />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary-500 to-emerald-600 text-3xl font-bold text-white xl:text-4xl rounded-full">
                         {initials}
@@ -664,7 +673,7 @@ function DashboardProfileContent() {
 
             <div className="mt-4 border-t border-gray-200 pt-4">
               <p className="text-xs text-gray-600">
-                Didn't receive the code? 
+                Didn&apos;t receive the code? 
                 <button
                   onClick={handleVerifyEmail}
                   disabled={isResendingCode}

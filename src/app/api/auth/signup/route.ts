@@ -1,72 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { 
   hashPassword, 
-  isValidEmailDomain, 
+  validateAuthInputs 
+} from "@/lib/auth-secure";
+import { 
   generateVerificationCode,
   sendVerificationEmail,
   storeVerificationCodeDb,
 } from "@/lib/auth";
 
-function getSupabaseServerClient() {
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!serviceRoleKey) {
-    throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set");
-  }
-
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    serviceRoleKey
-  );
-}
-
-function mapUser(row: Record<string, any>) {
-  // Handle both array and object forms of roles relationship
-  const rolesData = Array.isArray(row.roles) && row.roles[0] ? row.roles[0] : row.roles;
-  
-  return {
-    id: row.id,
-    email: row.email,
-    fullName: row.full_name,
-    phone: row.phone,
-    profileImageUrl: row.profile_image_url,
-    emailVerified: row.email_verified,
-    verifiedAt: row.verified_at,
-    roleId: row.role_id,
-    role: rolesData || undefined,
-    status: row.status,
-    lastLogin: row.last_login,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
-}
-
 export async function POST(request: NextRequest) {
   try {
     const { email, name, password } = await request.json();
-    const supabase = getSupabaseServerClient();
-
-    // Validate input
-    if (!email || !name || !password) {
+    
+    if (!validateAuthInputs(email, password) || !name) {
       return NextResponse.json(
-        { message: "Missing required fields" },
+        { message: "Invalid input fields" },
         { status: 400 }
       );
     }
 
-    if (password.length < 8) {
-      return NextResponse.json(
-        { message: "Password must be at least 8 characters" },
-        { status: 400 }
-      );
-    }
-
-    if (!isValidEmailDomain(email)) {
-      return NextResponse.json(
-        { message: "Only @gmail.com and @yahoo.com emails are allowed" },
-        { status: 400 }
-      );
-    }
+    const supabase = getSupabaseAdmin();
 
     const { data: existingUser } = await supabase
       .from("users")
@@ -81,61 +36,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { data: hikerRole, error: roleError } = await supabase
+    const { data: hikerRole } = await supabase
       .from("roles")
       .select("id")
       .eq("name", "Hiker")
       .single();
 
-    let resolvedRoleId = hikerRole?.id;
-    if (roleError || !hikerRole) {
-      const { data: createdRole, error: createRoleError } = await supabase
-        .from("roles")
-        .insert({
-          name: "Hiker",
-          description: "Regular user who books hikes",
-          hierarchy_level: 1,
-          can_manage_users: false,
-          can_manage_content: false,
-          can_manage_mountains: false,
-          can_assign_guides: false,
-          can_approve_bookings: false,
-          can_override_bookings: false,
-          can_access_logs: false,
-          can_access_settings: false,
-          can_access_admin: false,
-          is_active: true,
-        })
-        .select("id")
-        .single();
-
-      if (createRoleError || !createdRole) {
-        console.error("Role setup error:", createRoleError || roleError);
-        return NextResponse.json(
-          { message: "Default role not found. Run SQL schema setup first." },
-          { status: 500 }
-        );
-      }
-
-      resolvedRoleId = createdRole.id;
+    if (!hikerRole) {
+      return NextResponse.json(
+        { message: "System error: Default role not found" },
+        { status: 500 }
+      );
     }
+
+    const hashedPassword = await hashPassword(password);
 
     const { data: insertedUser, error: insertError } = await supabase
       .from("users")
       .insert({
         email,
-        password_hash: hashPassword(password),
+        password_hash: hashedPassword,
         full_name: name,
         email_verified: false,
-        role_id: resolvedRoleId,
+        role_id: hikerRole.id,
         status: "active",
       })
-      .select(
-        "id,email,full_name,phone,profile_image_url,email_verified,verified_at,role_id,status,last_login,created_at,updated_at,roles(*)"
-      )
+      .select("id, email")
       .single();
-    
-    console.log("🔐 [/api/auth/signup] User created:", { email, roleId: insertedUser?.role_id, roleData: insertedUser?.roles });
 
     if (insertError || !insertedUser) {
       console.error("Signup insert error:", insertError);
@@ -144,29 +71,20 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-    const newUser = mapUser(insertedUser);
 
-    // Generate and store verification code in database
+    // Verification Flow
     try {
       const verificationCode = generateVerificationCode();
       await storeVerificationCodeDb(email, verificationCode);
-      
-      // Send verification email
       await sendVerificationEmail(email, verificationCode);
-      console.log(`✅ [/api/auth/signup] Verification email sent to ${email}`);
     } catch (emailError) {
-      console.error("Failed to send verification email during signup:", emailError);
-      // Don't fail signup if email fails, user can resend later
+      console.error("Failed to send verification email:", emailError);
     }
 
-    // Set cookie for session
-    const res = NextResponse.json(newUser, { status: 201 });
-    res.cookies.set("auth-token", newUser.id, {
-      httpOnly: true,
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-    });
-
-    return res;
+    return NextResponse.json(
+      { message: "Account created. Please verify your email." },
+      { status: 201 }
+    );
   } catch (error) {
     console.error("Signup error:", error);
     return NextResponse.json(

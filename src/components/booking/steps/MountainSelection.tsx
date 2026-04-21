@@ -213,7 +213,7 @@ export default function MountainSelection() {
               <div className="mb-5 space-y-3">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 size={16} className="text-emerald-600/70" />
-                  <p className="text-xs font-black uppercase tracking-wider text-gray-400/80">What's Included</p>
+                  <p className="text-xs font-black uppercase tracking-wider text-gray-400/80">What&apos;s Included</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {(Array.isArray(mountain.inclusions) 

@@ -1,19 +1,40 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function GET() {
   try {
-    // Fetch the featured group photo with its testimonial
-    const { data: photo, error: photoError } = await supabase
+    // 1. Try to get the explicitly featured photo
+    let { data: photo, error: photoError } = await supabase
       .from("group_photos")
       .select("id, image_url, alt_text, title, location, photo_date, group_type")
       .eq("is_featured", true)
       .eq("is_active", true)
-      .single();
+      .limit(1)
+      .maybeSingle();
+
+    // 2. Fallback to the latest active photo if no featured one exists
+    if (!photo) {
+      const { data: latestPhoto, error: latestError } = await supabase
+        .from("group_photos")
+        .select("id, image_url, alt_text, title, location, photo_date, group_type")
+        .eq("is_active", true)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      photo = latestPhoto;
+      photoError = latestError;
+    }
 
     if (photoError || !photo) {
+      if (photoError) console.error("Database error fetching group photos:", photoError);
       return NextResponse.json(
-        { error: "No featured group photo found" },
+        { error: "No group photos found" },
         { status: 404 }
       );
     }
@@ -26,14 +47,14 @@ export async function GET() {
       );
     }
 
-    // Fetch the testimonial for this photo
+    // 3. Fetch the testimonial for this photo
     const { data: testimonial } = await supabase
       .from("testimonials")
       .select("hiker_name, testimonial_text")
       .eq("group_photo_id", photo.id)
       .eq("is_active", true)
       .eq("is_approved", true)
-      .single();
+      .maybeSingle();
 
     // Format the response to match the GroupHikePhoto type
     const formattedPhoto = {

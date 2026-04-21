@@ -18,7 +18,9 @@ import {
   Bell,
   ShieldCheck,
   AlertCircle,
-  RefreshCcw
+  RefreshCcw,
+  ImageIcon,
+  MessageSquare
 } from "lucide-react";
 import UserManagement from "@/components/admin/sections/UserManagement";
 import MountainManagement from "@/components/admin/sections/MountainManagement";
@@ -26,10 +28,12 @@ import BookingManagement from "@/components/admin/sections/BookingManagement";
 import DashboardHome from "@/components/admin/sections/DashboardHome";
 import SystemSettings from "@/components/admin/sections/SystemSettings";
 import AdsManagement from "@/components/admin/sections/AdsManagement";
+import GroupPhotosManagement from "@/components/admin/sections/GroupPhotosManagement";
+import TestimonialsManagement from "@/components/admin/sections/TestimonialsManagement";
 import { useAuth } from "@/context/AuthContext";
 import Modal from "@/components/admin/sections/Modal";
 
-type AdminSection = "dashboard" | "users" | "mountains" | "bookings" | "ads" | "settings";
+type AdminSection = "dashboard" | "users" | "mountains" | "bookings" | "ads" | "gallery" | "testimonials" | "settings";
 
 export default function AdminLayout() {
   return (
@@ -69,6 +73,8 @@ function AdminDashboard() {
     { id: "bookings", label: "Reservations", icon: BookOpen },
     { id: "mountains", label: "Expeditions", icon: Mountain },
     { id: "users", label: "Personnel", icon: Users },
+    { id: "gallery", label: "Gallery", icon: ImageIcon },
+    { id: "testimonials", label: "Reviews", icon: MessageSquare },
     { id: "ads", label: "Marketing", icon: Megaphone },
     { id: "settings", label: "Core Logic", icon: Settings },
   ] as const;
@@ -79,6 +85,8 @@ function AdminDashboard() {
       case "users": return <UserManagement />;
       case "mountains": return <MountainManagement />;
       case "bookings": return <BookingManagement />;
+      case "gallery": return <GroupPhotosManagement />;
+      case "testimonials": return <TestimonialsManagement />;
       case "ads": return <AdsManagement />;
       case "settings": return <SystemSettings />;
       default: return <DashboardHome />;
@@ -86,121 +94,118 @@ function AdminDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] font-inter">
+    <div className="min-h-screen bg-slate-50 font-inter flex">
       {/* Sidebar Navigation */}
       <aside
-        className={`fixed inset-y-0 left-0 z-[60] w-72 bg-[#0F172A] text-white transform transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] md:translate-x-0 ${
-          sidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full shadow-none"
-        }`}
+        className={`fixed inset-y-0 left-0 z-[60] w-[280px] bg-[#0B1120] text-slate-300 flex flex-col transform transition-transform duration-300 ease-in-out md:translate-x-0 ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        } shadow-2xl md:shadow-none`}
       >
-        <div className="flex flex-col h-full">
-          {/* Brand Identity */}
-          <div className="h-24 px-8 flex items-center justify-between border-b border-white/5">
-            <div className="flex items-center gap-4 group cursor-pointer" onClick={() => setActiveSection("dashboard")}>
-              <div className="w-10 h-10 rounded-2xl bg-primary-600 flex items-center justify-center shadow-lg shadow-primary-500/20 group-hover:scale-110 transition-transform">
+        {/* Brand */}
+        <div className="h-20 px-6 flex items-center justify-between border-b border-white/5 shrink-0">
+           <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setActiveSection("dashboard")}>
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center shadow-lg shadow-primary-500/20 group-hover:shadow-primary-500/40 transition-all">
                 <Mountain className="text-white" size={20} />
               </div>
-              <div>
-                <h1 className="text-xl font-black tracking-tight leading-none mb-1">ANTIGRAVITY</h1>
-                <p className="text-[10px] font-black tracking-[0.3em] text-primary-500/80">ADMIN KERNEL</p>
+              <div className="flex flex-col">
+                <span className="text-lg font-black text-white tracking-tight leading-none">Ananta</span>
+                <span className="text-[10px] font-bold tracking-[0.2em] text-primary-400 mt-1">ADMINISTRATOR</span>
               </div>
-            </div>
-            <button
+           </div>
+           <button
               onClick={() => setSidebarOpen(false)}
-              className="md:hidden p-2 hover:bg-white/5 rounded-xl transition-colors"
-            >
-              <X size={20} className="text-gray-400" />
-            </button>
-          </div>
+              className="md:hidden p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+           >
+              <X size={20} />
+           </button>
+        </div>
 
-          {/* Nav Links */}
-          <nav className="flex-1 px-4 py-8 space-y-1.5 overflow-y-auto scroll-hide">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = activeSection === item.id;
-              return (
+        {/* Navigation Links */}
+        <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-1 custom-scrollbar">
+           {navItems.map((item) => {
+             const Icon = item.icon;
+             const isActive = activeSection === item.id;
+             return (
                 <button
                   key={item.id}
                   onClick={() => {
                     setActiveSection(item.id);
                     setSidebarOpen(false);
                   }}
-                  className={`w-full group flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all duration-300 ${
-                    isActive
-                      ? "bg-primary-600 text-white shadow-lg shadow-primary-600/20"
-                      : "text-gray-400 hover:text-white hover:bg-white/5"
+                  className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl font-medium transition-all duration-200 group ${
+                    isActive 
+                      ? "bg-primary-500 text-white shadow-md shadow-primary-500/20" 
+                      : "text-slate-400 hover:text-slate-100 hover:bg-white/5"
                   }`}
                 >
-                  <div className="flex items-center gap-4">
-                    <Icon size={20} className={isActive ? "text-white" : "text-gray-500 group-hover:text-primary-400 transition-colors"} />
-                    <span className="text-sm font-black uppercase tracking-widest">{item.label}</span>
+                  <div className="flex items-center gap-3.5">
+                    <Icon size={18} className={isActive ? "text-white" : "text-slate-500 group-hover:text-slate-300 transition-colors"} />
+                    <span className={`text-sm tracking-wide ${isActive ? "font-bold" : "font-medium"}`}>{item.label}</span>
                   </div>
-                  {isActive && <ChevronRight size={14} className="animate-in fade-in slide-in-from-left-2" />}
+                  {isActive && <ChevronRight size={14} className="opacity-70 animate-in fade-in slide-in-from-left-2" />}
                 </button>
-              );
-            })}
-          </nav>
+             );
+           })}
+        </nav>
 
-          {/* User & Logic Termination */}
-          <div className="p-4 border-t border-white/5 bg-[#0A0F1E]/50">
-            <div className="bg-white/5 rounded-3xl p-4 mb-4 flex items-center gap-3 border border-white/5">
-               <div className="w-12 h-12 rounded-2xl overflow-hidden border border-white/10 shrink-0">
-                 {user?.profileImageUrl ? (
-                   <img src={user.profileImageUrl} alt="Prf" className="w-full h-full object-cover" />
+        {/* User Profile & Logout */}
+        <div className="p-4 border-t border-white/5 bg-[#0F172A]/50 shrink-0">
+           <div className="flex items-center gap-3 px-4 py-3 bg-white/5 rounded-xl border border-white/5 mb-3">
+              <div className="w-10 h-10 rounded-lg overflow-hidden bg-primary-900/50 flex items-center justify-center border border-white/10 shrink-0">
+                {user?.profileImageUrl ? (
+                   <img src={user.profileImageUrl} alt="Profile" className="w-full h-full object-cover" />
                  ) : (
-                   <div className="w-full h-full bg-gradient-to-br from-indigo-500 to-primary-600 flex items-center justify-center font-black text-white">{user?.fullName?.charAt(0) || "A"}</div>
+                   <User size={18} className="text-primary-400" />
                  )}
-               </div>
-               <div className="flex-1 min-w-0">
-                  <p className="text-xs font-black truncate">{user?.fullName || "Administrative Node"}</p>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-                    <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Active Status</span>
-                  </div>
-               </div>
-            </div>
-            <button
-              onClick={() => setShowLogoutConfirm(true)}
-              className="w-full flex items-center gap-3 px-6 py-4 text-xs font-black uppercase tracking-[0.2em] text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-2xl transition-all active:scale-95"
-            >
-              <LogOut size={16} />
-              Term. Session
-            </button>
-          </div>
+              </div>
+              <div className="flex-1 min-w-0 flex flex-col justify-center">
+                 <span className="text-sm font-semibold text-white truncate leading-tight">{user?.fullName || "Administrator"}</span>
+                 <span className="text-[10px] font-medium text-emerald-400 flex items-center gap-1.5 mt-0.5"><div className="w-1.5 h-1.5 rounded-full bg-emerald-400"></div> Online</span>
+              </div>
+           </div>
+           <button
+             onClick={() => setShowLogoutConfirm(true)}
+             className="w-full flex items-center justify-center gap-2 px-4 py-3 text-xs font-bold uppercase tracking-widest text-rose-400 hover:text-white hover:bg-rose-500 rounded-xl transition-all duration-200"
+           >
+             <LogOut size={16} />
+             <span>Sign Out</span>
+           </button>
         </div>
       </aside>
 
-      {/* Main Orchestration Layer */}
-      <div className={`md:ml-72 min-h-screen flex flex-col transition-all duration-500 ${sidebarOpen ? "opacity-50 blur-sm pointer-events-none md:opacity-100 md:blur-0 md:pointer-events-auto" : ""}`}>
-        {/* Global Toolbar */}
-        <header className="h-24 bg-white/80 backdrop-blur-xl border-b border-gray-100 px-8 flex items-center justify-between sticky top-0 z-40">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="md:hidden p-3 bg-gray-50 rounded-2xl text-gray-600 hover:text-primary-600 transition-all border border-gray-100 active:scale-90"
-            >
-              <Menu size={20} />
-            </button>
-            <div className="hidden sm:flex flex-col">
-               <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em]">Operational Cluster</p>
-               <h2 className="text-sm font-black text-gray-900 uppercase">Sector {activeSection}</h2>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-2xl border border-gray-100">
-               <Bell size={16} className="text-gray-400" />
-               <div className="w-1.5 h-1.5 rounded-full bg-rose-500"></div>
-            </div>
-            <div className="w-10 h-10 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center text-gray-400 hover:text-primary-600 hover:border-primary-100 transition-all cursor-pointer">
-               <ShieldCheck size={18} />
-            </div>
-          </div>
+      {/* Main Content Area */}
+      <div className={`flex-1 flex flex-col md:ml-[280px] min-w-0 transition-all duration-300 ${sidebarOpen ? "opacity-50 blur-sm pointer-events-none md:opacity-100 md:blur-0 md:pointer-events-auto" : ""}`}>
+        
+        {/* Header Toolbar */}
+        <header className="h-20 bg-white/80 backdrop-blur-xl border-b border-slate-200 px-6 sm:px-8 flex items-center justify-between sticky top-0 z-40">
+           <div className="flex items-center gap-4">
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="md:hidden p-2.5 text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors border border-slate-200"
+              >
+                <Menu size={20} />
+              </button>
+              <div className="hidden sm:flex flex-col">
+                 <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Dashboard</span>
+                 <h2 className="text-lg font-black text-slate-800 capitalize">{navItems.find(i => i.id === activeSection)?.label}</h2>
+              </div>
+           </div>
+           
+           {/* Header Actions */}
+           <div className="flex items-center gap-3">
+              <button className="p-2.5 text-slate-400 hover:text-primary-600 bg-slate-50 hover:bg-primary-50 rounded-xl transition-colors border border-slate-100 relative shadow-sm">
+                 <Bell size={18} />
+                 <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500 border-2 border-white"></span>
+              </button>
+              <button className="hidden sm:flex items-center gap-2 p-2.5 text-slate-400 hover:text-primary-600 bg-slate-50 hover:bg-primary-50 rounded-xl transition-colors border border-slate-100 shadow-sm">
+                 <ShieldCheck size={18} />
+              </button>
+           </div>
         </header>
 
-        {/* Dynamic Section Engine */}
-        <main className="p-4 sm:p-8 xl:p-12 animate-in fade-in duration-1000">
-          {renderSection()}
+        {/* Dynamic Content */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 animate-in fade-in duration-500 overflow-x-hidden">
+           {renderSection()}
         </main>
       </div>
 
@@ -208,29 +213,31 @@ function AdminDashboard() {
       <Modal
         open={showLogoutConfirm}
         onClose={() => !isLoggingOut && setShowLogoutConfirm(false)}
-        title="Termination Request"
+        title="Sign Out"
         maxWidth="sm"
       >
-        <div className="text-center font-inter p-2 py-6">
-           <div className="flex items-center justify-center w-20 h-20 mx-auto mb-8 rounded-[2.5rem] bg-rose-50 text-rose-600 shadow-inner group-hover:scale-110 transition-transform"><LogOut size={40} /></div>
-           <h3 className="mb-2 text-2xl font-black text-gray-900 leading-tight">Disconnect Session?</h3>
-           <p className="mb-10 text-sm text-gray-500 font-medium leading-relaxed px-4">You are about to terminate your administrative link to the system. All uncommitted logic parameters will be discarded.</p>
+        <div className="text-center font-inter p-2 py-4">
+           <div className="flex items-center justify-center w-16 h-16 mx-auto mb-6 rounded-2xl bg-rose-50 text-rose-600 shadow-sm group-hover:scale-110 transition-transform">
+             <LogOut size={32} />
+           </div>
+           <h3 className="mb-2 text-xl font-bold text-slate-900">Disconnect Session?</h3>
+           <p className="mb-8 text-sm text-slate-500 font-medium leading-relaxed px-4">You are about to sign out from the administrative kernel. Unsaved changes may be lost.</p>
            
-           <div className="flex flex-col sm:flex-row gap-4">
+           <div className="flex flex-col sm:flex-row gap-3">
              <button
                 type="button"
                 onClick={() => setShowLogoutConfirm(false)}
                 disabled={isLoggingOut}
-                className="flex-1 px-4 py-4 rounded-2xl border-2 border-gray-100 text-xs font-black uppercase tracking-widest text-gray-400 hover:text-gray-900 transition-all"
-             >Maintain Link</button>
+                className="flex-1 px-4 py-3 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-all"
+             >Cancel</button>
              <button
                 type="button"
                 onClick={handleLogout}
                 disabled={isLoggingOut}
-                className="flex-1 px-8 py-4 bg-rose-600 text-white text-xs font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-rose-500/30 hover:bg-rose-700 transition-all active:scale-95 flex items-center justify-center gap-2"
+                className="flex-1 px-6 py-3 bg-rose-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-rose-500/30 hover:bg-rose-700 transition-all active:scale-95 flex items-center justify-center gap-2"
              >
-                {isLoggingOut ? <RefreshCcw size={16} className="animate-spin" /> : <AlertCircle size={16} />}
-                Confirm Term.
+                {isLoggingOut ? <RefreshCcw size={16} className="animate-spin" /> : null}
+                Sign Out
              </button>
            </div>
         </div>
@@ -239,7 +246,7 @@ function AdminDashboard() {
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
         <div 
-          className="fixed inset-0 z-[55] bg-slate-950/40 backdrop-blur-sm md:hidden animate-in fade-in duration-300" 
+          className="fixed inset-0 z-[55] bg-slate-900/40 backdrop-blur-sm md:hidden animate-in fade-in duration-300" 
           onClick={() => setSidebarOpen(false)}
         />
       )}

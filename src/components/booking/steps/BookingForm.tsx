@@ -92,6 +92,7 @@ export default function BookingForm() {
       mountainName: bookingPackage.mountainName || "",
       hikeTypeId: bookingPackage.hikeTypeId,
       hikeTypeName: bookingPackage.hikeTypeName || "",
+      hikeTypePrice: bookingPackage.hikeTypePrice || 0,
       participants: bookingPackage.participants,
       date: bookingPackage.date,
       skillLevel: bookingPackage.skillLevel,

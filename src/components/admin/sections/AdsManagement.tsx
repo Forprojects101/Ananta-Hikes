@@ -199,17 +199,17 @@ export default function AdsManagement() {
       {/* Header Section */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-black text-gray-900 leading-tight">Promotions & Marketing</h1>
-          <p className="text-gray-500 font-medium">Manage seasonal banners and specialized adventure ads</p>
+          <h1 className="text-2xl font-bold text-slate-800 leading-tight">Promotions & Marketing</h1>
+          <p className="mt-1 text-sm text-slate-500 font-medium">Manage seasonal banners and specialized adventure ads</p>
         </div>
         <button
           onClick={() => {
             setAddForm(getInitialFormData());
             setIsAddModalOpen(true);
           }}
-          className="w-full sm:w-auto bg-primary-600 hover:bg-primary-700 text-white font-black py-3 px-6 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-primary-500/20 active:scale-95"
+          className="w-full sm:w-auto bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md shadow-primary-500/20 active:scale-95"
         >
-          <Plus size={20} />
+          <Plus size={18} />
           Create Promotion
         </button>
       </div>
@@ -233,14 +233,14 @@ export default function AdsManagement() {
       )}
 
       {/* Global Search Interface */}
-      <div className="relative mb-8 group">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary-500 transition-colors" size={20} />
+      <div className="relative mb-6 group">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-500 transition-colors" size={18} />
         <input
           type="text"
           placeholder="Filter campaigns by title or description..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-12 pr-6 py-4 border-2 border-gray-100 rounded-2xl focus:outline-none focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 transition-all shadow-sm group-hover:border-gray-200"
+          className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all shadow-sm outline-none font-medium text-slate-700"
         />
       </div>
 
@@ -248,42 +248,42 @@ export default function AdsManagement() {
       <div className="min-h-[400px]">
         {loading && ads.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 space-y-4">
-            <Loader2 className="animate-spin text-primary-500" size={48} />
-            <p className="text-sm font-black text-gray-400 uppercase tracking-widest">Synchronizing campaigns...</p>
+            <Loader2 className="animate-spin text-primary-500" size={32} />
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Synchronizing campaigns...</p>
           </div>
         ) : filteredAds.length === 0 ? (
-          <div className="text-center py-24 bg-gray-50 rounded-[2.5rem] border-2 border-dashed border-gray-100">
-            <Megaphone size={64} className="mx-auto text-gray-200 mb-4" />
-            <h3 className="text-xl font-black text-gray-400 uppercase tracking-widest mb-1">No Active Campaigns</h3>
-            <p className="text-gray-500 font-medium">Start by creating your first promotional masterpiece</p>
+          <div className="text-center py-24 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+            <Megaphone size={48} className="mx-auto text-slate-300 mb-3" />
+            <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-1">No Active Campaigns</h3>
+            <p className="text-slate-400 font-medium text-xs">Start by creating your first promotional masterpiece</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredAds.map((ad) => (
               <div
                 key={ad.id}
-                className="group bg-white rounded-[2rem] border border-gray-100 overflow-hidden hover:shadow-2xl hover:shadow-primary-500/10 hover:-translate-y-2 transition-all duration-500"
+                className="group bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-md transition-all duration-300 flex flex-col"
               >
                 {/* Image Visualization Layer */}
-                <div className="relative h-56 overflow-hidden bg-gray-100">
+                <div className="relative h-44 overflow-hidden bg-slate-100">
                   {ad.image_url ? (
                     <img
                       src={ad.image_url}
                       alt={ad.title}
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-300">
-                      <ImageIcon size={48} />
+                    <div className="w-full h-full flex items-center justify-center text-slate-300 bg-gradient-to-br from-slate-200 to-slate-300">
+                      <ImageIcon size={32} />
                     </div>
                   )}
                   {/* Status Overlay */}
-                  <div className="absolute top-4 right-4">
+                  <div className="absolute top-3 right-3">
                     <span
-                      className={`px-4 py-1.5 rounded-full text-[10px] font-black tracking-widest uppercase shadow-lg border-2 ${
+                      className={`px-2.5 py-1 rounded-md text-[10px] font-bold tracking-widest uppercase shadow-sm border ${
                         ad.is_active
-                          ? "bg-emerald-50 text-emerald-600 border-emerald-100"
-                          : "bg-gray-50 text-gray-400 border-gray-100"
+                          ? "bg-white/90 text-emerald-600 border-emerald-200"
+                          : "bg-white/90 text-slate-500 border-slate-200"
                       }`}
                     >
                       {ad.is_active ? "Active" : "Archived"}
@@ -292,36 +292,36 @@ export default function AdsManagement() {
                 </div>
 
                 {/* Information Layer */}
-                <div className="p-8">
-                  <h3 className="font-black text-xl text-gray-900 mb-3 group-hover:text-primary-600 transition-colors line-clamp-1">{ad.title}</h3>
+                <div className="p-5 flex flex-col flex-1">
+                  <h3 className="font-bold text-lg text-slate-800 mb-2 group-hover:text-primary-600 transition-colors line-clamp-1">{ad.title}</h3>
                   
                   {ad.description && (
-                    <p className="text-sm text-gray-500 font-medium mb-6 line-clamp-2 leading-relaxed">
+                    <p className="text-xs text-slate-500 font-medium mb-4 line-clamp-2 leading-relaxed flex-1">
                       {ad.description}
                     </p>
                   )}
 
                   {/* Campaign Metadata */}
-                  <div className="space-y-3 mb-8">
+                  <div className="space-y-2 mb-5 p-3 bg-slate-50 rounded-xl border border-slate-100">
                     {ad.start_date && (
-                      <div className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                        <Calendar size={12} className="text-primary-500/50" />
-                        <span>Since: {new Date(ad.start_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                      <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
+                        <span className="flex items-center gap-1.5"><Calendar size={14} className="text-slate-400" /> Since</span>
+                        <span className="text-slate-800">{new Date(ad.start_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                       </div>
                     )}
                     {ad.link_url && (
-                      <div className="flex items-center gap-2 text-[10px] font-black text-primary-600/70 uppercase tracking-widest truncate">
-                        <Globe size={12} />
-                        <span className="truncate">{new Date(ad.end_date!).toLocaleDateString()} Deadline</span>
+                      <div className="flex items-center justify-between text-xs font-semibold text-slate-500 truncate">
+                        <span className="flex items-center gap-1.5"><Globe size={14} className="text-slate-400" /> Deadline</span>
+                        <span className="text-slate-800 truncate">{new Date(ad.end_date!).toLocaleDateString()}</span>
                       </div>
                     )}
                   </div>
 
                   {/* Action Commands */}
-                  <div className="flex gap-3 pt-6 border-t border-gray-50">
+                  <div className="flex gap-2 mt-auto">
                     <button
                       onClick={() => handleEditClick(ad)}
-                      className="flex-1 flex items-center justify-center gap-2 py-3 text-xs font-black uppercase tracking-widest text-gray-600 border-2 border-gray-100 rounded-2xl hover:bg-primary-50 hover:text-primary-600 hover:border-primary-100 transition-all active:scale-95"
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:text-primary-600 hover:bg-primary-50 hover:border-primary-200 transition-all shadow-sm"
                     >
                       <Edit size={14} />
                       Config
@@ -331,7 +331,7 @@ export default function AdsManagement() {
                         setDeletingId(ad.id);
                         setIsDeleteModalOpen(true);
                       }}
-                      className="flex-1 flex items-center justify-center gap-2 py-3 text-xs font-black uppercase tracking-widest text-rose-600 border-2 border-transparent hover:bg-rose-50 rounded-2xl transition-all active:scale-95"
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold text-rose-600 bg-white border border-rose-200 rounded-xl hover:bg-rose-50 transition-all shadow-sm"
                     >
                       <Trash2 size={14} />
                       Purge
@@ -349,99 +349,114 @@ export default function AdsManagement() {
         open={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         title="Initialize Expedition Campaign"
-        maxWidth="md"
+        maxWidth="5xl"
       >
-        <form onSubmit={handleAddSubmit} className="space-y-8 font-inter">
-           {/* Visual Preview Slot */}
-           <div className="relative group/preview rounded-[2rem] h-48 overflow-hidden bg-gray-50 border-2 border-dashed border-gray-200 transition-all hover:border-primary-300">
-             {addForm.image_url ? (
-               <img src={addForm.image_url} className="w-full h-full object-cover" alt="Preview" />
-             ) : (
-               <div className="w-full h-full flex flex-col items-center justify-center text-gray-300 gap-2">
-                 <Megaphone size={32} />
-                 <span className="text-[10px] font-black uppercase tracking-widest opacity-50">Content Visualizer</span>
-               </div>
-             )}
-           </div>
+        <form onSubmit={handleAddSubmit} className="font-inter">
+          <div className="flex flex-col lg:flex-row gap-10">
+            {/* Left: Visual Sidebar */}
+            <div className="lg:w-1/3 space-y-6">
+              <div className="relative group/preview rounded-[2.5rem] aspect-square overflow-hidden bg-gray-50 border-2 border-dashed border-gray-200 transition-all hover:border-primary-300 shadow-inner">
+                {addForm.image_url ? (
+                  <img src={addForm.image_url} className="w-full h-full object-cover" alt="Preview" />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center text-gray-300 gap-3">
+                    <div className="p-4 rounded-3xl bg-white shadow-sm">
+                      <Megaphone size={32} className="text-gray-200" />
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-50 text-center px-6">Campaign Visual Preview</span>
+                  </div>
+                )}
+              </div>
 
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-             <div className="md:col-span-2">
-               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Campaign Title *</label>
-               <input
-                 type="text"
-                 value={addForm.title}
-                 onChange={(e) => setAddForm({ ...addForm, title: e.target.value })}
-                 placeholder="e.g., Summit Special 2024"
-                 className="w-full px-5 py-4 bg-gray-50 rounded-2xl border-2 border-transparent focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all outline-none font-bold"
-                 disabled={isActionLoading}
-               />
-             </div>
+              <div className="p-6 rounded-[2rem] bg-slate-50 border border-slate-100">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Visual Assets</p>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-[9px] font-bold text-slate-400 uppercase mb-1.5 block ml-1">Graphics URL</label>
+                    <div className="relative">
+                      <ImageIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                      <input
+                        type="url"
+                        value={addForm.image_url}
+                        onChange={(e) => setAddForm({ ...addForm, image_url: e.target.value })}
+                        placeholder="https://..."
+                        className="w-full pl-10 pr-4 py-3 bg-white rounded-xl border border-slate-200 focus:border-primary-500 transition-all outline-none font-bold text-[11px]"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-bold text-slate-400 uppercase mb-1.5 block ml-1">Redirection Link</label>
+                    <div className="relative">
+                      <Globe className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                      <input
+                        type="url"
+                        value={addForm.link_url}
+                        onChange={(e) => setAddForm({ ...addForm, link_url: e.target.value })}
+                        placeholder="https://..."
+                        className="w-full pl-10 pr-4 py-3 bg-white rounded-xl border border-slate-200 focus:border-primary-500 transition-all outline-none font-bold text-[11px]"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-             <div className="md:col-span-2">
-               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Campaign Brief</label>
-               <textarea
-                 value={addForm.description}
-                 onChange={(e) => setAddForm({ ...addForm, description: e.target.value })}
-                 placeholder="Draft your promotional message here..."
-                 className="w-full px-5 py-4 bg-gray-50 rounded-2xl border-2 border-transparent focus:bg-white focus:border-primary-500 transition-all outline-none font-medium h-32 resize-none"
-                 disabled={isActionLoading}
-               />
-             </div>
+            {/* Right: Configuration Fields */}
+            <div className="flex-1 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="md:col-span-2">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Campaign Title *</label>
+                  <input
+                    type="text"
+                    value={addForm.title}
+                    onChange={(e) => setAddForm({ ...addForm, title: e.target.value })}
+                    placeholder="e.g., Summit Special 2024"
+                    className="w-full px-5 py-4 bg-gray-50 rounded-2xl border-2 border-transparent focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all outline-none font-bold text-lg"
+                    disabled={isActionLoading}
+                  />
+                </div>
 
-             <div>
-               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block text-primary-600">Graphics URL</label>
-               <div className="relative">
-                 <ImageIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
-                 <input
-                   type="url"
-                   value={addForm.image_url}
-                   onChange={(e) => setAddForm({ ...addForm, image_url: e.target.value })}
-                   placeholder="Direct Image Path"
-                   className="w-full pl-12 pr-5 py-4 bg-gray-50 rounded-2xl border-2 border-transparent focus:bg-white focus:border-primary-500 transition-all outline-none font-bold text-sm"
-                   disabled={isActionLoading}
-                 />
-               </div>
-             </div>
+                <div className="md:col-span-2">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Campaign Brief</label>
+                  <textarea
+                    value={addForm.description}
+                    onChange={(e) => setAddForm({ ...addForm, description: e.target.value })}
+                    placeholder="Draft your promotional message here..."
+                    className="w-full px-5 py-4 bg-gray-50 rounded-2xl border-2 border-transparent focus:bg-white focus:border-primary-500 transition-all outline-none font-medium h-32 resize-none"
+                    disabled={isActionLoading}
+                  />
+                </div>
 
-             <div>
-               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block text-primary-600">Redirection Hub</label>
-               <div className="relative">
-                 <Globe className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
-                 <input
-                   type="url"
-                   value={addForm.link_url}
-                   onChange={(e) => setAddForm({ ...addForm, link_url: e.target.value })}
-                   placeholder="Target destination"
-                   className="w-full pl-12 pr-5 py-4 bg-gray-50 rounded-2xl border-2 border-transparent focus:bg-white focus:border-primary-500 transition-all outline-none font-bold text-sm"
-                   disabled={isActionLoading}
-                 />
-               </div>
-             </div>
+                <div>
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Deployment Start</label>
+                  <div className="relative">
+                    <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
+                    <input
+                      type="date"
+                      value={addForm.start_date}
+                      onChange={(e) => setAddForm({ ...addForm, start_date: e.target.value })}
+                      className="w-full pl-12 pr-5 py-4 bg-gray-50 rounded-2xl border-2 border-transparent focus:bg-white focus:border-primary-500 transition-all outline-none font-bold"
+                      disabled={isActionLoading}
+                    />
+                  </div>
+                </div>
 
-             <div>
-               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Deployment Start</label>
-               <input
-                 type="date"
-                 value={addForm.start_date}
-                 onChange={(e) => setAddForm({ ...addForm, start_date: e.target.value })}
-                 className="w-full px-5 py-4 bg-gray-50 rounded-2xl border-2 border-transparent focus:bg-white focus:border-primary-500 transition-all outline-none font-bold"
-                 disabled={isActionLoading}
-               />
-             </div>
+                <div>
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Campaign Expiration</label>
+                  <div className="relative">
+                    <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
+                    <input
+                      type="date"
+                      value={addForm.end_date}
+                      onChange={(e) => setAddForm({ ...addForm, end_date: e.target.value })}
+                      className="w-full pl-12 pr-5 py-4 bg-gray-50 rounded-2xl border-2 border-transparent focus:bg-white focus:border-primary-500 transition-all outline-none font-bold"
+                      disabled={isActionLoading}
+                    />
+                  </div>
+                </div>
+              </div>
 
-             <div>
-               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Campaign Expiration</label>
-               <input
-                 type="date"
-                 value={addForm.end_date}
-                 onChange={(e) => setAddForm({ ...addForm, end_date: e.target.value })}
-                 className="w-full px-5 py-4 bg-gray-50 rounded-2xl border-2 border-transparent focus:bg-white focus:border-primary-500 transition-all outline-none font-bold"
-                 disabled={isActionLoading}
-               />
-             </div>
-           </div>
-
-           <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pt-6 border-t border-gray-100">
+                         <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pt-6 border-t border-gray-100">
              <div className="flex items-center gap-3 px-4 py-2 rounded-2xl border-2 border-gray-50 cursor-pointer group/toggle shadow-sm transition-all hover:bg-gray-50 active:scale-95" onClick={() => setAddForm({ ...addForm, is_active: !addForm.is_active })}>
                 <div className={`w-10 h-6 rounded-full transition-all duration-300 flex items-center px-1 ${addForm.is_active ? 'bg-primary-600' : 'bg-gray-200'}`}>
                   <div className={`w-4 h-4 rounded-full bg-white transition-all duration-300 ${addForm.is_active ? 'translate-x-4 shadow-md' : 'translate-x-0'}`} />
@@ -449,22 +464,25 @@ export default function AdsManagement() {
                 <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 group-hover/toggle:text-gray-900">Immediate Activation</span>
              </div>
 
-             <div className="flex gap-3 w-full sm:w-auto">
-                <button
-                  type="button"
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="flex-1 px-6 py-4 text-xs font-black uppercase tracking-widest text-gray-400 hover:text-gray-900 transition-all"
-                >Cancel</button>
-                <button
-                  type="submit"
-                  disabled={isActionLoading}
-                  className="flex-1 px-10 py-4 bg-primary-600 text-white text-xs font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary-500/20 hover:bg-primary-700 transition-all active:scale-95 flex items-center justify-center gap-2"
-                >
-                  {isActionLoading && <Loader2 size={16} className="animate-spin" />}
-                  Finalize Promotion <ArrowRight size={16} />
-                </button>
-             </div>
-           </div>
+                             <div className="flex gap-4 w-full sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddModalOpen(false)}
+                    className="flex-1 sm:flex-none px-8 py-4 rounded-2xl border-2 border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-all"
+                  >
+                    Discard
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isActionLoading}
+                    className="flex-1 sm:flex-none px-8 py-4 rounded-2xl bg-primary-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-primary-700 shadow-xl shadow-primary-500/20 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {isActionLoading ? "Processing..." : <>Launch Campaign <ArrowRight size={14} /></>}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </form>
       </Modal>
 
@@ -473,117 +491,144 @@ export default function AdsManagement() {
         open={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         title="Command Campaign Update"
-        maxWidth="md"
+        maxWidth="5xl"
       >
-        <form onSubmit={handleEditSubmit} className="space-y-8 font-inter">
-           {/* Visual Preview Slot */}
-           <div className="relative group/preview rounded-[2rem] h-48 overflow-hidden bg-gray-50 border-2 border-primary-100 transition-all">
-             {editForm.image_url ? (
-               <img src={editForm.image_url} className="w-full h-full object-cover" alt="Preview" />
-             ) : (
-               <div className="w-full h-full flex flex-col items-center justify-center text-gray-300 gap-2">
-                 <Megaphone size={32} />
-                 <span className="text-[10px] font-black uppercase tracking-widest opacity-50">Graphics Pending</span>
-               </div>
-             )}
-             <div className="absolute bottom-4 right-4 group-hover/preview:scale-110 transition-transform">
-                <div className="bg-white/80 backdrop-blur-md px-4 py-2 rounded-2xl shadow-lg border border-white/50 text-[10px] font-black uppercase tracking-widest text-primary-600">Active Blueprint</div>
-             </div>
-           </div>
-
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-             <div className="md:col-span-2">
-               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Campaign Identity *</label>
-               <input
-                 type="text"
-                 value={editForm.title}
-                 onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-                 className="w-full px-5 py-4 bg-gray-50 rounded-2xl border-2 border-transparent focus:bg-white focus:border-primary-500 transition-all outline-none font-bold"
-                 disabled={isActionLoading}
-               />
-             </div>
-
-             <div className="md:col-span-2">
-               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Campaign Directive</label>
-               <textarea
-                 value={editForm.description}
-                 onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                 className="w-full px-5 py-4 bg-gray-50 rounded-2xl border-2 border-transparent focus:bg-white focus:border-primary-500 transition-all outline-none font-medium h-32 resize-none"
-                 disabled={isActionLoading}
-               />
-             </div>
-
-             <div>
-               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Visual Asset Hub</label>
-               <input
-                 type="url"
-                 value={editForm.image_url}
-                 onChange={(e) => setEditForm({ ...editForm, image_url: e.target.value })}
-                 className="w-full px-5 py-4 bg-gray-50 rounded-2xl border-2 border-transparent focus:bg-white focus:border-primary-500 transition-all outline-none font-bold text-sm"
-                 disabled={isActionLoading}
-               />
-             </div>
-
-             <div>
-               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Destination Anchor</label>
-               <input
-                 type="url"
-                 value={editForm.link_url}
-                 onChange={(e) => setEditForm({ ...editForm, link_url: e.target.value })}
-                 className="w-full px-5 py-4 bg-gray-50 rounded-2xl border-2 border-transparent focus:bg-white focus:border-primary-500 transition-all outline-none font-bold text-sm"
-                 disabled={isActionLoading}
-               />
-             </div>
-
-             <div>
-               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Operational Start</label>
-               <input
-                 type="date"
-                 value={editForm.start_date}
-                 onChange={(e) => setEditForm({ ...editForm, start_date: e.target.value })}
-                 className="w-full px-5 py-4 bg-gray-50 rounded-2xl border-2 border-transparent focus:bg-white focus:border-primary-500 transition-all outline-none font-bold"
-                 disabled={isActionLoading}
-               />
-             </div>
-
-             <div>
-               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Operational End</label>
-               <input
-                 type="date"
-                 value={editForm.end_date}
-                 onChange={(e) => setEditForm({ ...editForm, end_date: e.target.value })}
-                 className="w-full px-5 py-4 bg-gray-50 rounded-2xl border-2 border-transparent focus:bg-white focus:border-primary-500 transition-all outline-none font-bold"
-                 disabled={isActionLoading}
-               />
-             </div>
-           </div>
-
-           <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pt-6 border-t border-gray-100">
-             <div className="flex items-center gap-3 p-2 bg-gray-50 rounded-2xl border border-gray-100 cursor-pointer shadow-inner" onClick={() => setEditForm({ ...editForm, is_active: !editForm.is_active })}>
-                <div className={`w-12 h-7 rounded-full transition-all duration-300 flex items-center px-1 ${editForm.is_active ? 'bg-emerald-500 shadow-lg shadow-emerald-500/20' : 'bg-gray-300'}`}>
-                  <div className={`w-5 h-5 rounded-full bg-white transition-all duration-300 ${editForm.is_active ? 'translate-x-5' : 'translate-x-0'}`} />
+        <form onSubmit={handleEditSubmit} className="font-inter">
+          <div className="flex flex-col lg:flex-row gap-10">
+            {/* Left Column: Asset Preview */}
+            <div className="lg:w-1/3 space-y-6">
+              <div className="relative group/preview rounded-[2.5rem] aspect-square overflow-hidden bg-gray-50 border-2 border-primary-100 transition-all shadow-inner">
+                {editForm.image_url ? (
+                  <img src={editForm.image_url} className="w-full h-full object-cover" alt="Preview" />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center text-gray-300 gap-3">
+                    <div className="p-4 rounded-3xl bg-white shadow-sm">
+                      <Megaphone size={32} className="text-gray-200" />
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-50 text-center px-6">Graphics Pending</span>
+                  </div>
+                )}
+                <div className="absolute bottom-4 right-4">
+                  <div className="bg-white/90 backdrop-blur-md px-4 py-2 rounded-2xl shadow-lg border border-white/50 text-[10px] font-black uppercase tracking-widest text-primary-600">Active Blueprint</div>
                 </div>
-                <span className={`text-[10px] font-black uppercase tracking-widest ${editForm.is_active ? 'text-emerald-600' : 'text-gray-400'}`}>
-                   {editForm.is_active ? 'Operational' : 'On Standby'}
-                </span>
-             </div>
+              </div>
 
-             <div className="flex gap-3 w-full sm:w-auto">
-                <button
-                  type="button"
-                  onClick={() => setIsEditModalOpen(false)}
-                  className="flex-1 px-6 py-4 text-xs font-black uppercase tracking-widest text-gray-400 hover:text-gray-900 transition-all"
-                >Discard Changes</button>
-                <button
-                  type="submit"
-                  disabled={isActionLoading}
-                  className="flex-1 px-10 py-4 bg-primary-600 text-white text-xs font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary-500/20 hover:bg-primary-700 transition-all active:scale-95 flex items-center justify-center gap-2"
-                >
-                  {isActionLoading && <Loader2 size={16} className="animate-spin" />}
-                  Deploy Updates <ArrowRight size={16} />
-                </button>
-             </div>
-           </div>
+              <div className="p-6 rounded-[2rem] bg-slate-50 border border-slate-100">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Linked Resources</p>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-[9px] font-bold text-slate-400 uppercase mb-1.5 block ml-1">Visual Asset Hub</label>
+                    <div className="relative">
+                      <ImageIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                      <input
+                        type="url"
+                        value={editForm.image_url}
+                        onChange={(e) => setEditForm({ ...editForm, image_url: e.target.value })}
+                        placeholder="Graphics URL"
+                        className="w-full pl-10 pr-4 py-3 bg-white rounded-xl border border-slate-200 focus:border-primary-500 transition-all outline-none font-bold text-[11px]"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-bold text-slate-400 uppercase mb-1.5 block ml-1">Destination Anchor</label>
+                    <div className="relative">
+                      <Globe className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                      <input
+                        type="url"
+                        value={editForm.link_url}
+                        onChange={(e) => setEditForm({ ...editForm, link_url: e.target.value })}
+                        placeholder="Redirect Link"
+                        className="w-full pl-10 pr-4 py-3 bg-white rounded-xl border border-slate-200 focus:border-primary-500 transition-all outline-none font-bold text-[11px]"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column: Campaign Logic */}
+            <div className="flex-1 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="md:col-span-2">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Campaign Identity *</label>
+                  <input
+                    type="text"
+                    value={editForm.title}
+                    onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                    className="w-full px-5 py-4 bg-gray-50 rounded-2xl border-2 border-transparent focus:bg-white focus:border-primary-500 transition-all outline-none font-bold text-lg"
+                    disabled={isActionLoading}
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Campaign Directive</label>
+                  <textarea
+                    value={editForm.description}
+                    onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                    className="w-full px-5 py-4 bg-gray-50 rounded-2xl border-2 border-transparent focus:bg-white focus:border-primary-500 transition-all outline-none font-medium h-32 resize-none"
+                    disabled={isActionLoading}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Operational Start</label>
+                  <div className="relative">
+                    <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
+                    <input
+                      type="date"
+                      value={editForm.start_date}
+                      onChange={(e) => setEditForm({ ...editForm, start_date: e.target.value })}
+                      className="w-full pl-12 pr-5 py-4 bg-gray-50 rounded-2xl border-2 border-transparent focus:bg-white focus:border-primary-500 transition-all outline-none font-bold"
+                      disabled={isActionLoading}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Operational End</label>
+                  <div className="relative">
+                    <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
+                    <input
+                      type="date"
+                      value={editForm.end_date}
+                      onChange={(e) => setEditForm({ ...editForm, end_date: e.target.value })}
+                      className="w-full pl-12 pr-5 py-4 bg-gray-50 rounded-2xl border-2 border-transparent focus:bg-white focus:border-primary-500 transition-all outline-none font-bold"
+                      disabled={isActionLoading}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pt-6 border-t border-gray-100">
+                <div className="flex items-center gap-3 p-2 bg-gray-50 rounded-2xl border border-gray-100 cursor-pointer shadow-inner" onClick={() => setEditForm({ ...editForm, is_active: !editForm.is_active })}>
+                  <div className={`w-12 h-7 rounded-full transition-all duration-300 flex items-center px-1 ${editForm.is_active ? 'bg-emerald-500 shadow-lg shadow-emerald-500/20' : 'bg-gray-300'}`}>
+                    <div className={`w-5 h-5 rounded-full bg-white transition-all duration-300 ${editForm.is_active ? 'translate-x-5' : 'translate-x-0'}`} />
+                  </div>
+                  <span className={`text-[10px] font-black uppercase tracking-widest ${editForm.is_active ? 'text-emerald-600' : 'text-gray-400'}`}>
+                    {editForm.is_active ? 'Operational' : 'On Standby'}
+                  </span>
+                </div>
+
+                <div className="flex gap-4 w-full sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditModalOpen(false)}
+                    className="flex-1 sm:flex-none px-8 py-4 rounded-2xl border-2 border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-all"
+                  >
+                    Discard Changes
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isActionLoading}
+                    className="flex-1 sm:flex-none px-8 py-4 rounded-2xl bg-primary-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-primary-700 shadow-xl shadow-primary-500/20 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {isActionLoading && <Loader2 size={16} className="animate-spin" />}
+                    Deploy Updates <ArrowRight size={16} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </form>
       </Modal>
 

@@ -47,6 +47,7 @@ export interface Booking {
   mountainName: string;
   hikeTypeId: string;
   hikeTypeName: string;
+  hikeTypePrice: number;
   participants: number;
   date: string;
   skillLevel: string;
@@ -164,7 +165,11 @@ export interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, name: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  logoutFromAllDevices: () => Promise<void>;
   verifyEmail: (code: string) => Promise<void>;
   resendCode: (email: string) => Promise<void>;
   error: string | null;
+  accessToken: string | null;
+  setAuthData: (data: { accessToken: string; user: User }) => void;
+  setAccessToken: (token: string | null) => void;
 }

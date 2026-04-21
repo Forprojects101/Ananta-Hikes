@@ -7,6 +7,7 @@ import { useState, useEffect, useRef } from "react";
 import { ClientProtectedRoute } from "@/components/ClientProtectedRoute";
 import { Sidebar } from "./navigation";
 import { Calendar, Users, PhilippinePeso } from "lucide-react";
+import { apiRequest } from "@/lib/api-client";
 
 interface Booking {
   id: string;
@@ -22,7 +23,7 @@ interface Booking {
 }
 
 function DashboardContent() {
-  const { user, logout, isAuthenticated } = useAuth();
+  const { user, logout, isAuthenticated, accessToken, setAccessToken } = useAuth();
   const router = useRouter();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -30,13 +31,17 @@ function DashboardContent() {
   const [isCancellingBooking, setIsCancellingBooking] = useState(false);
   const [cancelBookingError, setCancelBookingError] = useState<string | null>(null);
   const didCancelRef = useRef(false);
+
   const handleCancelBooking = async () => {
     if (!bookingToCancel) return;
     try {
       setIsCancellingBooking(true);
       setCancelBookingError(null);
-      const response = await fetch("/api/bookings", {
+      const response = await apiRequest("/api/bookings", {
         method: "PATCH",
+        accessToken,
+        onTokenRefresh: (token: string) => setAccessToken(token),
+        onLogout: () => logout(),
         headers: {
           "Content-Type": "application/json",
           ...(user?.id ? { "x-user-id": user.id } : {}),
@@ -78,7 +83,10 @@ function DashboardContent() {
 
     const loadBookings = async () => {
       try {
-        const response = await fetch("/api/bookings", {
+        const response = await apiRequest("/api/bookings", {
+          accessToken,
+          onTokenRefresh: (token: string) => setAccessToken(token),
+          onLogout: () => logout(),
           headers: {
             ...(user?.id ? { "x-user-id": user.id } : {}),
             ...(user?.email ? { "x-user-email": user.email } : {}),
@@ -108,7 +116,7 @@ function DashboardContent() {
     return () => {
       didCancelRef.current = true;
     };
-  }, [isAuthenticated, router, user?.email, user?.id]);
+  }, [isAuthenticated, router, user?.email, user?.id, accessToken, logout, setAccessToken]);
 
   const upcomingBookings = bookings.filter(
     (booking) => booking.status === "pending" || booking.status === "approved"
@@ -190,8 +198,13 @@ function DashboardContent() {
                         <h3 className="text-lg font-bold text-gray-900">{booking.mountainName}</h3>
                         <p className="mt-1 text-sm text-gray-600">{booking.hikeType}</p>
                       </div>
-                      <span className="px-3 py-1 rounded-full text-sm font-semibold bg-blue-100 text-blue-800">
-                        Upcoming
+                      <span className={`px-3 py-1 rounded-full text-sm font-semibold capitalize ${
+                        booking.status === 'approved' ? 'bg-emerald-100 text-emerald-800' :
+                        booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                        booking.status === 'completed' ? 'bg-blue-100 text-blue-800' :
+                        'bg-red-100 text-red-800'
+                      }`}>
+                        {booking.status}
                       </span>
                     </div>
                     <div className="mt-4 grid grid-cols-3 gap-3 border-t border-gray-200 pt-4">
@@ -232,48 +245,48 @@ function DashboardContent() {
                     )}
                   </div>
                 ))}
-                    {bookingToCancel && (
-                      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
-                        <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-                          <h3 className="text-lg font-bold text-gray-900">Cancel Booking?</h3>
-                          <p className="mt-2 text-sm text-gray-600">
-                            You are about to cancel your pending booking for <span className="font-semibold">"{bookingToCancel.mountainName}"</span>.
-                            Please confirm if you wish to proceed. This action cannot be undone.
-                          </p>
+                {bookingToCancel && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
+                    <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+                      <h3 className="text-lg font-bold text-gray-900">Cancel Booking?</h3>
+                      <p className="mt-2 text-sm text-gray-600">
+                        You are about to cancel your pending booking for <span className="font-semibold">&quot;{bookingToCancel.mountainName}&quot;</span>.
+                        Please confirm if you wish to proceed. This action cannot be undone.
+                      </p>
 
-                          {cancelBookingError && (
-                            <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
-                              {cancelBookingError}
-                            </p>
-                          )}
+                      {cancelBookingError && (
+                        <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+                          {cancelBookingError}
+                        </p>
+                      )}
 
-                          <div className="mt-5 flex gap-3">
-                            <button
-                              onClick={() => {
-                                setBookingToCancel(null);
-                                setCancelBookingError(null);
-                              }}
-                              disabled={isCancellingBooking}
-                              className="flex-1 rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
-                            >
-                              Keep Booking
-                            </button>
-                            <button
-                              onClick={handleCancelBooking}
-                              disabled={isCancellingBooking}
-                              className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                              {isCancellingBooking ? "Cancelling..." : "Yes, Cancel"}
-                            </button>
-                          </div>
-                        </div>
+                      <div className="mt-5 flex gap-3">
+                        <button
+                          onClick={() => {
+                            setBookingToCancel(null);
+                            setCancelBookingError(null);
+                          }}
+                          disabled={isCancellingBooking}
+                          className="flex-1 rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                        >
+                          Keep Booking
+                        </button>
+                        <button
+                          onClick={handleCancelBooking}
+                          disabled={isCancellingBooking}
+                          className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {isCancellingBooking ? "Cancelling..." : "Yes, Cancel"}
+                        </button>
                       </div>
-                    )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
-          </div>
         </div>
+      </div>
     </section>
   );
 }

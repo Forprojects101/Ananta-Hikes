@@ -140,7 +140,7 @@ function VerifyPageContent() {
             </form>
 
             <div className="mt-6 p-3 bg-blue-50 border border-blue-100 rounded-lg text-center">
-              <p className="text-xs text-blue-900 font-medium mb-1">Didn't receive the code?</p>
+              <p className="text-xs text-blue-900 font-medium mb-1">Didn&apos;t receive the code?</p>
               {canResend ? (
                 <button
                   onClick={handleResend}

@@ -73,43 +73,43 @@ export default function UserManagement() {
     <div className="font-inter">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-black text-gray-900 leading-tight">User Directory</h1>
-          <p className="mt-2 text-gray-500 font-medium">Manage expedition participants and professional mountain guides</p>
+          <h1 className="text-2xl font-bold text-slate-800 leading-tight">User Directory</h1>
+          <p className="mt-1 text-sm text-slate-500 font-medium">Manage expedition participants and professional mountain guides</p>
         </div>
       </div>
 
       {notice && (
-        <div className="mb-6 rounded-2xl border border-emerald-100 bg-emerald-50 px-6 py-4 text-sm font-bold text-emerald-700 flex items-center gap-3 animate-in slide-in-from-top-4 duration-300">
-          <CheckCircle className="text-emerald-500" size={20} />
+        <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700 flex items-center gap-3 animate-in slide-in-from-top-4 duration-300 shadow-sm">
+          <CheckCircle className="text-emerald-500 shrink-0" size={18} />
           {notice}
         </div>
       )}
 
       {/* Premium Search Integration */}
-      <div className="mb-8 relative group">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary-500 transition-colors" size={20} />
+      <div className="mb-6 relative group">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-500 transition-colors" size={18} />
         <input
           type="text"
           placeholder="Filter by name, email identity, or specific role..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-12 pr-6 py-4 border-2 border-gray-100 rounded-2xl focus:outline-none focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 transition-all shadow-sm font-medium"
+          className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all shadow-sm outline-none font-medium text-slate-700"
         />
       </div>
 
       {/* Standardized Responsive Table Wrapper */}
-      <div className="bg-white rounded-[2rem] shadow-xl shadow-gray-200/50 border border-gray-100 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-8">
         <div className="overflow-x-auto">
           <table className="w-full whitespace-nowrap">
             <thead>
-              <tr className="bg-gray-50/50 text-left border-b border-gray-100">
-                <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Profile & Identity</th>
-                <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Designated Role</th>
-                <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Current Status</th>
-                <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Registration Date</th>
+              <tr className="bg-slate-50 text-left border-b border-slate-200">
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Profile & Identity</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Designated Role</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Current Status</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Registration Date</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-slate-100">
               {filteredUsers.map((user) => {
                 const roleData = Array.isArray(user.roles) ? user.roles[0] : user.roles;
                 const roleName = roleData?.name || "Member";
@@ -117,52 +117,52 @@ export default function UserManagement() {
                 const sStyle = statusStyles[user.status] || statusStyles["inactive"];
 
                 return (
-                  <tr key={user.id} className="hover:bg-primary-50/20 transition-all duration-300 group cursor-default">
-                    <td className="px-8 py-5">
-                      <div className="flex items-center gap-4">
-                        <div className="relative">
+                  <tr key={user.id} className="hover:bg-slate-50 transition-colors group">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="relative shrink-0">
                           {user.profile_image_url ? (
                             <img
                               src={user.profile_image_url}
                               alt={user.full_name || user.email}
-                              className="h-12 w-12 rounded-2xl object-cover border-2 border-white shadow-md transition-transform group-hover:scale-110"
+                              className="h-10 w-10 rounded-xl object-cover border border-slate-200 shadow-sm"
                             />
                           ) : (
-                            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-50 text-primary-700 font-black border-2 border-white shadow-md group-hover:bg-primary-100 transition-colors">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-50 text-primary-700 font-bold border border-primary-100 shadow-sm group-hover:bg-primary-100 transition-colors">
                               {(user.full_name || user.email).charAt(0).toUpperCase()}
                             </div>
                           )}
-                          <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${sStyle.dot} shadow-sm`}></div>
+                          <div className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-white ${sStyle.dot} shadow-sm`}></div>
                         </div>
-                        <div>
-                          <p className="font-black text-gray-900 group-hover:text-primary-700 transition-colors">{user.full_name || "Guest Participant"}</p>
-                          <div className="flex items-center gap-1.5 text-xs text-gray-400 font-medium">
-                            <Mail size={12} />
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-slate-900 group-hover:text-primary-600 transition-colors truncate">{user.full_name || "Guest Participant"}</p>
+                          <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium mt-0.5 truncate">
+                            <Mail size={12} className="shrink-0" />
                             {user.email}
                           </div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-8 py-5">
+                    <td className="px-6 py-4">
                       <span
-                        className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm border-2 ${
-                          style.bg
-                        } ${style.text} border-current/10`}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest shadow-sm border ${
+                          style.bg.replace('bg-', 'bg-white/50 border-')
+                        } ${style.text} ${style.text.replace('text-', 'border-').replace('700', '200')}`}
                       >
-                        <Shield size={14} className={style.icon} />
+                        <Shield size={12} className={style.icon} />
                         {roleName}
                       </span>
                     </td>
-                    <td className="px-8 py-5">
-                      <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border-2 ${sStyle.bg} ${sStyle.text} border-current/10`}>
+                    <td className="px-6 py-4">
+                      <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest shadow-sm border ${sStyle.bg.replace('bg-', 'bg-white/50 border-')} ${sStyle.text} ${sStyle.text.replace('text-', 'border-').replace('700', '200').replace('500', '200')}`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${sStyle.dot}`}></span>
                         {user.status}
                       </div>
                     </td>
-                    <td className="px-8 py-5">
-                      <div className="flex items-center gap-2 text-sm font-bold text-gray-500">
-                        <Calendar size={14} className="text-gray-300" />
-                        {new Date(user.created_at).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2 text-sm font-semibold text-slate-600">
+                        <Calendar size={14} className="text-slate-400" />
+                        {new Date(user.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                       </div>
                     </td>
                   </tr>
@@ -170,11 +170,11 @@ export default function UserManagement() {
               })}
               {filteredUsers.length === 0 && (
                 <tr>
-                   <td colSpan={4} className="px-8 py-32 text-center text-gray-400">
-                      <div className="flex flex-col items-center justify-center gap-4">
-                        <User size={48} className="text-gray-200" />
-                        <h3 className="text-sm font-black uppercase tracking-widest">No users identified</h3>
-                        <p className="text-xs font-medium">Verify your search criteria or administrative filters</p>
+                   <td colSpan={4} className="px-6 py-24 text-center text-slate-400">
+                      <div className="flex flex-col items-center justify-center gap-3">
+                        <User size={32} className="text-slate-300" />
+                        <h3 className="text-sm font-bold">No users identified</h3>
+                        <p className="text-xs font-medium text-slate-500">Verify your search criteria or administrative filters</p>
                       </div>
                    </td>
                 </tr>

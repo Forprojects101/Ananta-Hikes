@@ -2,7 +2,13 @@
 
 import { createContext, useContext, useState, ReactNode, useCallback, useRef } from "react";
 
-type SyncEvent = "mountains-updated" | "bookings-updated" | "hike-types-updated" | "add-ons-updated" | "content-settings-updated";
+type SyncEvent = 
+  | "mountains-updated" 
+  | "bookings-updated" 
+  | "hike-types-updated" 
+  | "add-ons-updated" 
+  | "content-settings-updated"
+  | "testimonials-updated";
 
 interface DataSyncContextType {
   // Trigger a refresh event
@@ -25,6 +31,7 @@ export function DataSyncProvider({ children }: { children: ReactNode }) {
     "hike-types-updated": new Set(),
     "add-ons-updated": new Set(),
     "content-settings-updated": new Set(),
+    "testimonials-updated": new Set(),
   });
 
   const [lastSyncTimestamp, setLastSyncTimestamp] = useState<Record<SyncEvent, number>>({
@@ -33,6 +40,7 @@ export function DataSyncProvider({ children }: { children: ReactNode }) {
     "hike-types-updated": 0,
     "add-ons-updated": 0,
     "content-settings-updated": 0,
+    "testimonials-updated": 0,
   });
 
   const triggerSync = useCallback((event: SyncEvent) => {

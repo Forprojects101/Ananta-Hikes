@@ -11,11 +11,14 @@ import {
   ChevronDown,
   SlidersHorizontal,
   X,
+  Star,
+  CheckCircle
 } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
 import { Sidebar } from "./navigation";
 import { ClientProtectedRoute } from "@/components/ClientProtectedRoute";
+import { apiRequest } from "@/lib/api-client";
 
 interface Booking {
   id: string;
@@ -25,7 +28,7 @@ interface Booking {
   totalPrice: number;
   bookingDate: string;
   startDate: string;
-  endDate: string;
+  addOns: string;
   status: "pending" | "approved" | "completed" | "cancelled";
   referenceNumber?: string;
   customerName?: string;
@@ -34,6 +37,23 @@ interface Booking {
   emergencyContact?: string;
   paymentMethod?: string;
   notes?: string;
+  tourGuide?: string;
+}
+
+interface Joiner {
+  id: string;
+  bookingId: string;
+  mountainName: string;
+  mountainImage?: string;
+  mountainLocation?: string;
+  startDate: string;
+  hikeType: string;
+  participants: number;
+  totalPrice: number;
+  status: "pending" | "approved" | "rejected";
+  createdAt: string;
+  skillLevel?: string;
+  addOns?: any;
 }
 
 type FilterStatus = "all" | "pending" | "approved" | "completed" | "cancelled";
@@ -47,16 +67,23 @@ const statusOptions: Array<{ value: FilterStatus; label: string }> = [
 ];
 
 function DashboardBookingsContent() {
-  const { isAuthenticated, logout, user } = useAuth();
+  const { isAuthenticated, logout, user, accessToken, setAccessToken } = useAuth();
   const router = useRouter();
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [joiners, setJoiners] = useState<Joiner[]>([]);
+  const [activeTab, setActiveTab] = useState<"bookings" | "joiners">("bookings");
   const [selectedStatus, setSelectedStatus] = useState<FilterStatus>("all");
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [selectedJoiner, setSelectedJoiner] = useState<Joiner | null>(null);
   const [bookingToCancel, setBookingToCancel] = useState<Booking | null>(null);
   const [isCancellingBooking, setIsCancellingBooking] = useState(false);
   const [cancelBookingError, setCancelBookingError] = useState<string | null>(null);
+  const [reviewBooking, setReviewBooking] = useState<Booking | null>(null);
+  const [reviewData, setReviewData] = useState({ stars: 5, text: "" });
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [reviewNotice, setReviewNotice] = useState<{ message: string; type: 'success' | 'error' | null }>({ message: '', type: null });
   const filterMenuRef = useRef<HTMLDivElement | null>(null);
   const didCancelRef = useRef(false);
 
@@ -84,7 +111,7 @@ function DashboardBookingsContent() {
         : null;
     didCancelRef.current = false;
 
-    const loadBookings = async () => {
+    const loadData = async () => {
       const cachedBookings = cacheKey ? sessionStorage.getItem(cacheKey) : null;
 
       try {
@@ -92,37 +119,48 @@ function DashboardBookingsContent() {
           setBookings(JSON.parse(cachedBookings));
         }
 
-        const response = await fetch("/api/bookings", {
+        const requestOptions = {
+          accessToken,
+          onTokenRefresh: (token: string) => setAccessToken(token),
+          onLogout: () => logout(),
           headers: {
             ...(user?.id ? { "x-user-id": user.id } : {}),
             ...(user?.email ? { "x-user-email": user.email } : {}),
-          },
-        });
+          }
+        };
 
-        if (!response.ok) {
-          throw new Error("Failed to fetch bookings");
+        // Fetch Bookings
+        const bookingsRes = await apiRequest("/api/bookings", requestOptions);
+
+        // Fetch Joiners
+        const joinersRes = await apiRequest("/api/client/joiners", requestOptions);
+
+        if (bookingsRes.ok) {
+          const data = await bookingsRes.json();
+          const nextBookings = data.bookings || [];
+          if (!didCancelRef.current) {
+            setBookings(nextBookings);
+            if (cacheKey) sessionStorage.setItem(cacheKey, JSON.stringify(nextBookings));
+          }
         }
 
-        const data = await response.json();
-        const nextBookings = data.bookings || [];
-
-        if (!didCancelRef.current) {
-          setBookings(nextBookings);
-          if (cacheKey) {
-            sessionStorage.setItem(cacheKey, JSON.stringify(nextBookings));
+        if (joinersRes.ok) {
+          const data = await joinersRes.json();
+          if (!didCancelRef.current) {
+            setJoiners(data.joiners || []);
           }
         }
       } catch (error) {
-        console.error("Failed to load bookings:", error);
+        console.error("Failed to load dashboard data:", error);
       }
     };
 
-    loadBookings();
+    loadData();
 
     return () => {
       didCancelRef.current = true;
     };
-  }, [isAuthenticated, router, user?.email, user?.id]);
+  }, [isAuthenticated, router, user?.email, user?.id, accessToken, logout, setAccessToken]);
 
   const filteredBookings = bookings.filter((booking) => {
     if (selectedStatus === "all") return true;
@@ -159,12 +197,13 @@ function DashboardBookingsContent() {
       setIsCancellingBooking(true);
       setCancelBookingError(null);
 
-      const response = await fetch("/api/bookings", {
+      const response = await apiRequest("/api/bookings", {
         method: "PATCH",
+        accessToken,
+        onTokenRefresh: (token: string) => setAccessToken(token),
+        onLogout: () => logout(),
         headers: {
           "Content-Type": "application/json",
-          ...(user?.id ? { "x-user-id": user.id } : {}),
-          ...(user?.email ? { "x-user-email": user.email } : {}),
         },
         body: JSON.stringify({ bookingId: bookingToCancel.id }),
       });
@@ -207,6 +246,49 @@ function DashboardBookingsContent() {
     }
   };
 
+  const handleSubmitReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reviewBooking || !user) return;
+    
+    setIsSubmittingReview(true);
+    setReviewNotice({ message: '', type: null });
+    
+    try {
+      const response = await apiRequest("/api/testimonials", {
+        method: "POST",
+        accessToken,
+        onTokenRefresh: (token: string) => setAccessToken(token),
+        onLogout: () => logout(),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: user.fullName || user.email,
+          profile_url: user.profileImageUrl,
+          star_rate: reviewData.stars,
+          testimonial_text: reviewData.text,
+          user_id: user.id,
+          booking_id: reviewBooking.id
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Failed to submit review");
+
+      setReviewNotice({ message: data.message, type: 'success' });
+      setTimeout(() => {
+        setReviewBooking(null);
+        setReviewData({ stars: 5, text: "" });
+        setReviewNotice({ message: '', type: null });
+      }, 3000);
+    } catch (error) {
+      setReviewNotice({ 
+        message: error instanceof Error ? error.message : "Submission failed", 
+        type: 'error' 
+      });
+    } finally {
+      setIsSubmittingReview(false);
+    }
+  };
+
   return (
     <div className="flex min-h-screen flex-col bg-gray-100 md:flex-row">
       <Sidebar
@@ -222,8 +304,10 @@ function DashboardBookingsContent() {
         <div className="mb-8 rounded-2xl border border-white/60 bg-gradient-to-r from-emerald-600 to-primary-600 p-5 text-white shadow-lg sm:p-6">
           <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-black tracking-tight">My Bookings</h1>
-              <p className="mt-1 text-emerald-50">{filteredBookings.length} booking(s) found</p>
+              <h1 className="text-2xl sm:text-3xl font-black tracking-tight">My Adventures</h1>
+              <p className="mt-1 text-emerald-50">
+                {bookings.length} booking(s) • {joiners.length} join request(s)
+              </p>
             </div>
             <Link
               href="/booking"
@@ -232,6 +316,30 @@ function DashboardBookingsContent() {
               Book a Hike
             </Link>
           </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="mb-6 flex gap-2 p-1 bg-gray-200/50 rounded-2xl w-fit">
+          <button
+            onClick={() => setActiveTab("bookings")}
+            className={`px-6 py-2.5 rounded-xl text-sm font-black uppercase tracking-widest transition-all ${
+              activeTab === "bookings" 
+                ? "bg-white text-primary-600 shadow-sm" 
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            My Bookings
+          </button>
+          <button
+            onClick={() => setActiveTab("joiners")}
+            className={`px-6 py-2.5 rounded-xl text-sm font-black uppercase tracking-widest transition-all ${
+              activeTab === "joiners" 
+                ? "bg-white text-primary-600 shadow-sm" 
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            Join Requests
+          </button>
         </div>
 
         {/* Filter */}
@@ -257,11 +365,10 @@ function DashboardBookingsContent() {
                       setSelectedStatus(status.value);
                       setShowFilterMenu(false);
                     }}
-                    className={`block w-full px-4 py-2.5 text-left text-sm font-medium transition ${
-                      selectedStatus === status.value
+                    className={`block w-full px-4 py-2.5 text-left text-sm font-medium transition ${selectedStatus === status.value
                         ? "bg-primary-50 text-primary-700"
                         : "text-gray-700 hover:bg-gray-50"
-                    }`}
+                      }`}
                   >
                     {status.label}
                   </button>
@@ -271,104 +378,199 @@ function DashboardBookingsContent() {
           </div>
         </div>
 
-        {/* Bookings List */}
-        {filteredBookings.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center shadow-sm sm:p-12">
-            <AlertCircle size={48} className="mx-auto mb-4 text-gray-400" />
-            <h2 className="mb-2 text-2xl font-bold text-gray-900">No bookings yet</h2>
-            <p className="mb-6 text-gray-600">
-              {selectedStatus === "all"
-                ? "You haven't booked any hikes yet. Start your adventure!"
-                : `You have no ${selectedStatus} bookings.`}
-            </p>
-            <Link
-              href="/booking"
-              className="inline-block rounded-xl bg-primary-600 px-6 py-3 font-semibold text-white transition hover:bg-primary-700"
-            >
-              Book a Hike
-            </Link>
-          </div>
-        ) : (
-          <div className="grid gap-4 sm:gap-5 lg:grid-cols-2 2xl:grid-cols-3">
-            {filteredBookings.map((booking) => (
-              <div
-                key={booking.id}
-                className="group flex h-full flex-col rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg sm:p-5"
+        {/* Content List */}
+        {activeTab === "bookings" ? (
+          filteredBookings.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center shadow-sm sm:p-12">
+              <AlertCircle size={48} className="mx-auto mb-4 text-gray-400" />
+              <h2 className="mb-2 text-2xl font-bold text-gray-900">No bookings yet</h2>
+              <p className="mb-6 text-gray-600">
+                {selectedStatus === "all"
+                  ? "You haven't booked any hikes yet. Start your adventure!"
+                  : `You have no ${selectedStatus} bookings.`}
+              </p>
+              <Link
+                href="/booking"
+                className="inline-block rounded-xl bg-primary-600 px-6 py-3 font-semibold text-white transition hover:bg-primary-700"
               >
-                <div className="mb-4 flex flex-col items-start justify-between gap-3 sm:flex-row sm:gap-4">
-                  <div className="flex-1">
-                    <h3 className="text-lg font-bold text-gray-900 sm:text-xl">{booking.mountainName}</h3>
-                    <p className="mt-1 text-sm text-gray-600">Booked on {booking.bookingDate}</p>
+                Book a Hike
+              </Link>
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:gap-5 lg:grid-cols-2 2xl:grid-cols-3">
+              {filteredBookings.map((booking) => (
+                <div
+                  key={booking.id}
+                  className="group flex h-full flex-col rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg sm:p-5"
+                >
+                  <div className="mb-4 flex flex-col items-start justify-between gap-3 sm:flex-row sm:gap-4">
+                    <div className="flex-1">
+                      <h3 className="text-lg font-bold text-gray-900 sm:text-xl">{booking.mountainName}</h3>
+                      <p className="mt-1 text-sm text-gray-600">Booked on {booking.bookingDate}</p>
+                    </div>
+                    <span className={`px-3 py-1 rounded-full font-semibold text-sm ${getStatusColor(booking.status)}`}>
+                      {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                    </span>
                   </div>
-                  <span className={`px-3 py-1 rounded-full font-semibold text-sm ${getStatusColor(booking.status)}`}>
-                    {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
-                  </span>
-                </div>
 
-                <div className="grid grid-cols-2 gap-3 border-t border-gray-200 pt-4">
-                  <div className="rounded-xl bg-gray-50 p-3">
-                    <div className="flex items-center gap-2">
-                      <Calendar size={18} className="text-primary-600" />
-                      <p className="text-xs text-gray-600">Start Date</p>
+                  <div className="grid grid-cols-2 gap-3 border-t border-gray-200 pt-4">
+                    <div className="rounded-xl bg-gray-50 p-3">
+                      <div className="flex items-center gap-2">
+                        <Calendar size={18} className="text-primary-600" />
+                        <p className="text-xs text-gray-600">Start Date</p>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900 mt-1">{booking.startDate}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-semibold text-gray-900 mt-1">{booking.startDate}</p>
+                    <div className="rounded-xl bg-gray-50 p-3">
+                      <div className="flex items-center gap-2">
+                        <Clock size={18} className="text-primary-600" />
+                        <p className="text-xs text-gray-600">Type</p>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900 mt-1">{booking.hikeType}</p>
+                      </div>
+                    </div>
+                    <div className="rounded-xl bg-gray-50 p-3">
+                      <div className="flex items-center gap-2">
+                        <Users size={18} className="text-primary-600" />
+                        <p className="text-xs text-gray-600">Participants</p>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900 mt-1">{booking.participants}</p>
+                      </div>
+                    </div>
+                    <div className="rounded-xl bg-gray-50 p-3">
+                      <div className="flex items-center gap-2">
+                        <PhilippinePeso size={18} className="text-primary-600" />
+                        <p className="text-xs text-gray-600">Total Price</p>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900 mt-1">₱{booking.totalPrice.toLocaleString()}</p>
+                      </div>
                     </div>
                   </div>
-                  <div className="rounded-xl bg-gray-50 p-3">
-                    <div className="flex items-center gap-2">
-                      <Clock size={18} className="text-primary-600" />
-                      <p className="text-xs text-gray-600">Type</p>
-                    </div>
-                    <div>
-                      <p className="font-semibold text-gray-900 mt-1">{booking.hikeType}</p>
-                    </div>
-                  </div>
-                  <div className="rounded-xl bg-gray-50 p-3">
-                    <div className="flex items-center gap-2">
-                      <Users size={18} className="text-primary-600" />
-                      <p className="text-xs text-gray-600">Participants</p>
-                    </div>
-                    <div>
-                      <p className="font-semibold text-gray-900 mt-1">{booking.participants}</p>
-                    </div>
-                  </div>
-                  <div className="rounded-xl bg-gray-50 p-3">
-                    <div className="flex items-center gap-2">
-                      <PhilippinePeso size={18} className="text-primary-600" />
-                      <p className="text-xs text-gray-600">Total Price</p>
-                    </div>
-                    <div>
-                      <p className="font-semibold text-gray-900 mt-1">₱{booking.totalPrice.toLocaleString()}</p>
-                    </div>
-                  </div>
-                </div>
 
-                <div className="mt-4 flex justify-end gap-2 border-t border-gray-200 pt-4">
-                  {booking.status === "pending" && (
+                  <div className="mt-4 flex justify-end gap-2 border-t border-gray-200 pt-4">
+                    {booking.status === "pending" && (
+                      <button
+                        onClick={() => {
+                          setBookingToCancel(booking);
+                          setCancelBookingError(null);
+                        }}
+                        className="inline-flex items-center gap-2 rounded-xl border border-red-300 bg-white px-4 py-2.5 text-sm font-semibold text-red-700 transition hover:bg-red-50"
+                      >
+                        Cancel Booking
+                      </button>
+                    )}
+                    {booking.status === "completed" && (
+                      <button
+                        onClick={() => {
+                          setReviewBooking(booking);
+                          setReviewNotice({ message: '', type: null });
+                        }}
+                        className="inline-flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100"
+                      >
+                        <Star size={16} />
+                        Give Review
+                      </button>
+                    )}
                     <button
-                      onClick={() => {
-                        setBookingToCancel(booking);
-                        setCancelBookingError(null);
-                      }}
-                      className="inline-flex items-center gap-2 rounded-xl border border-red-300 bg-white px-4 py-2.5 text-sm font-semibold text-red-700 transition hover:bg-red-50"
+                      onClick={() => setSelectedBooking(booking)}
+                      className="inline-flex items-center gap-2 rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-700"
                     >
-                      Cancel Booking
+                      View Details
                     </button>
-                  )}
-                  <button
-                    onClick={() => setSelectedBooking(booking)}
-                    className="inline-flex items-center gap-2 rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-700"
-                  >
-                    View Details
-                  </button>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )
+        ) : (
+          /* Joiner Requests View */
+          joiners.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center shadow-sm sm:p-12">
+              <Users size={48} className="mx-auto mb-4 text-gray-400" />
+              <h2 className="mb-2 text-2xl font-bold text-gray-900">No join requests</h2>
+              <p className="mb-6 text-gray-600">You haven&apos;t requested to join any expeditions yet.</p>
+              <Link
+                href="/schedule"
+                className="inline-block rounded-xl bg-primary-600 px-6 py-3 font-semibold text-white transition hover:bg-primary-700"
+              >
+                Find Expeditions
+              </Link>
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:gap-5 lg:grid-cols-2 2xl:grid-cols-3">
+              {joiners.map((joiner) => (
+                <div
+                  key={joiner.id}
+                  className="group flex h-full flex-col rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg sm:p-5"
+                >
+                  <div className="mb-4 flex flex-col items-start justify-between gap-3 sm:flex-row sm:gap-4">
+                    <div className="flex-1">
+                      <h3 className="text-lg font-bold text-gray-900 sm:text-xl">{joiner.mountainName}</h3>
+                      <p className="mt-1 text-sm text-gray-600">Requested to join on {new Date(joiner.createdAt).toLocaleDateString()}</p>
+                    </div>
+                    <span className={`px-3 py-1 rounded-full font-semibold text-sm ${getStatusColor(joiner.status)}`}>
+                      {joiner.status.charAt(0).toUpperCase() + joiner.status.slice(1)}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 border-t border-gray-200 pt-4">
+                    <div className="rounded-xl bg-gray-50 p-3">
+                      <div className="flex items-center gap-2">
+                        <Calendar size={18} className="text-primary-600" />
+                        <p className="text-xs text-gray-600">Trip Date</p>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900 mt-1">{new Date(joiner.startDate).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                    <div className="rounded-xl bg-gray-50 p-3">
+                      <div className="flex items-center gap-2">
+                        <Clock size={18} className="text-primary-600" />
+                        <p className="text-xs text-gray-600">Hike Type</p>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900 mt-1">{joiner.hikeType}</p>
+                      </div>
+                    </div>
+                    <div className="rounded-xl bg-gray-50 p-3">
+                      <div className="flex items-center gap-2">
+                        <Users size={18} className="text-primary-600" />
+                        <p className="text-xs text-gray-600">Participants</p>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900 mt-1">{joiner.participants}</p>
+                      </div>
+                    </div>
+                    <div className="rounded-xl bg-gray-50 p-3">
+                      <div className="flex items-center gap-2">
+                        <PhilippinePeso size={18} className="text-primary-600" />
+                        <p className="text-xs text-gray-600">Total Price</p>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900 mt-1">₱{Number(joiner.totalPrice).toLocaleString()}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex justify-end gap-2 border-t border-gray-200 pt-4">
+                    <button
+                      onClick={() => setSelectedJoiner(joiner)}
+                      className="inline-flex items-center gap-2 rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-700"
+                    >
+                      View Details
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
         )}
       </div>
-
       {selectedBooking && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-3 sm:p-4 backdrop-blur-sm">
           <div className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl">
@@ -410,8 +612,8 @@ function DashboardBookingsContent() {
                   <p className="mt-1 text-sm font-semibold text-gray-900">{selectedBooking.startDate}</p>
                 </div>
                 <div className="rounded-xl bg-gray-50 p-3">
-                  <p className="text-xs text-gray-600">End Date</p>
-                  <p className="mt-1 text-sm font-semibold text-gray-900">{selectedBooking.endDate}</p>
+                  <p className="text-xs text-gray-600">Add-ons</p>
+                  <p className="mt-1 text-sm font-semibold text-gray-900">{selectedBooking.addOns}</p>
                 </div>
                 <div className="rounded-xl bg-gray-50 p-3">
                   <p className="text-xs text-gray-600">Participants</p>
@@ -424,6 +626,24 @@ function DashboardBookingsContent() {
                 <div className="rounded-xl bg-gray-50 p-3 sm:col-span-2">
                   <p className="text-xs text-gray-600">Emergency Contact</p>
                   <p className="mt-1 text-sm font-semibold text-gray-900">{selectedBooking.emergencyContact || "N/A"}</p>
+                </div>
+              </div>
+
+              {/* Enhanced Tour Guide Section */}
+              <div className="mt-4 overflow-hidden rounded-2xl border border-emerald-100 bg-emerald-50/50">
+                <div className="flex items-center gap-4 p-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-lg shadow-emerald-200">
+                    <Users size={24} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600/70">Professional Guide Assignment</p>
+                    <h4 className="text-base font-black text-emerald-950">
+                      {selectedBooking.tourGuide || "Pending Professional Assignment"}
+                    </h4>
+                    {selectedBooking.tourGuide && (
+                      <p className="text-[10px] font-medium text-emerald-600">Your authorized lead for this expedition</p>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -456,12 +676,97 @@ function DashboardBookingsContent() {
         </div>
       )}
 
+      {selectedJoiner && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-3 sm:p-4 backdrop-blur-sm">
+          <div className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-start justify-between gap-3 border-b border-gray-200 px-4 py-3 sm:px-5">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary-600">Join Request Details</p>
+                <h3 className="mt-1 text-lg font-black text-gray-950 sm:text-xl">{selectedJoiner.mountainName}</h3>
+                <p className="mt-1 text-xs text-gray-600 sm:text-sm">Requested on {new Date(selectedJoiner.createdAt).toLocaleDateString()}</p>
+              </div>
+              <button
+                onClick={() => setSelectedJoiner(null)}
+                className="rounded-full border border-gray-200 p-1.5 text-gray-600 transition hover:bg-gray-100 hover:text-gray-900"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="max-h-[80vh] overflow-y-auto px-4 py-4 sm:px-5">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl bg-gray-50 p-3">
+                  <p className="text-xs text-gray-600">Status</p>
+                  <div className={`mt-1 inline-flex px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-widest border ${getStatusColor(selectedJoiner.status)} border-current`}>
+                    {selectedJoiner.status}
+                  </div>
+                </div>
+                <div className="rounded-xl bg-gray-50 p-3">
+                  <p className="text-xs text-gray-600">Hike Type</p>
+                  <p className="mt-1 text-sm font-semibold text-gray-900">{selectedJoiner.hikeType}</p>
+                </div>
+                <div className="rounded-xl bg-gray-50 p-3">
+                  <p className="text-xs text-gray-600">Trip Date</p>
+                  <p className="mt-1 text-sm font-semibold text-gray-900">{new Date(selectedJoiner.startDate).toLocaleDateString()}</p>
+                </div>
+                <div className="rounded-xl bg-gray-50 p-3">
+                  <p className="text-xs text-gray-600">Skill Level</p>
+                  <p className="mt-1 text-sm font-semibold text-gray-900">{selectedJoiner.skillLevel || "Beginner"}</p>
+                </div>
+                <div className="rounded-xl bg-gray-50 p-3">
+                  <p className="text-xs text-gray-600">Participants</p>
+                  <p className="mt-1 text-sm font-semibold text-gray-900">{selectedJoiner.participants}</p>
+                </div>
+                <div className="rounded-xl bg-gray-50 p-3">
+                  <p className="text-xs text-gray-600">Total Valuation</p>
+                  <p className="mt-1 text-sm font-semibold text-gray-900">₱{Number(selectedJoiner.totalPrice).toLocaleString()}</p>
+                </div>
+              </div>
+
+              {/* Add-ons Section */}
+              <div className="mt-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-600 mb-2">Selected Add-ons</p>
+                <div className="flex flex-wrap gap-2">
+                  {Array.isArray(selectedJoiner.addOns) && selectedJoiner.addOns.length > 0 ? (
+                    selectedJoiner.addOns.map((addon: any, idx: number) => (
+                      <span key={idx} className="px-3 py-1.5 bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-widest rounded-xl border border-emerald-100">
+                        {addon.name}
+                      </span>
+                    ))
+                  ) : (
+                    <p className="text-xs italic text-gray-400">No add-ons selected</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Notes Section */}
+              <div className="mt-4 rounded-xl border border-gray-200 bg-white p-3.5">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">My Notes</p>
+                <div className="mt-2 text-sm text-gray-700 italic">
+                  {/* @ts-ignore */}
+                  {selectedJoiner.notes || "No additional notes provided."}
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={() => setSelectedJoiner(null)}
+                  className="rounded-xl bg-primary-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-700 shadow-lg shadow-primary-500/20"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {bookingToCancel && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
             <h3 className="text-lg font-bold text-gray-900">Cancel Booking?</h3>
             <p className="mt-2 text-sm text-gray-600">
-              You are about to cancel your pending booking for <span className="font-semibold">"{bookingToCancel.mountainName}"</span>.
+              You are about to cancel your pending booking for <span className="font-semibold">&quot;{bookingToCancel.mountainName}&quot;</span>.
               Please confirm if you wish to proceed. This action cannot be undone.
             </p>
 
@@ -490,6 +795,79 @@ function DashboardBookingsContent() {
                 {isCancellingBooking ? "Cancelling..." : "Yes, Cancel"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Testimonial Review Modal */}
+      {reviewBooking && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="w-full max-w-md overflow-hidden rounded-[2rem] bg-white shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="bg-gradient-to-br from-emerald-600 to-primary-600 px-6 py-5 text-white text-center relative">
+              <button 
+                onClick={() => setReviewBooking(null)}
+                className="absolute top-3 right-3 p-1.5 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+              >
+                <X size={14} />
+              </button>
+              <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white/10 backdrop-blur-md mb-2 border border-white/20">
+                <Star size={20} className="fill-yellow-300 text-yellow-300" />
+              </div>
+              <h3 className="text-lg font-black tracking-tight">How was your hike?</h3>
+              <p className="mt-0.5 text-emerald-50 text-[10px] font-medium">Reviewing <span className="font-bold">{reviewBooking.mountainName}</span></p>
+            </div>
+
+            <form onSubmit={handleSubmitReview} className="p-4 space-y-4">
+              {reviewNotice.type && (
+                <div className={`p-4 rounded-2xl flex items-center gap-3 text-sm font-bold animate-in slide-in-from-top-2 ${
+                  reviewNotice.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-rose-50 text-rose-700 border border-rose-100'
+                }`}>
+                  {reviewNotice.type === 'success' ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
+                  {reviewNotice.message}
+                </div>
+              )}
+
+              <div className="space-y-3">
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 text-center block">Summit Rating</label>
+                <div className="flex justify-center gap-2">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setReviewData(prev => ({ ...prev, stars: star }))}
+                      className="p-1 transition-transform hover:scale-110 active:scale-90"
+                    >
+                      <Star 
+                        size={22} 
+                        className={star <= reviewData.stars ? "fill-yellow-400 text-yellow-400" : "fill-gray-100 text-gray-200"} 
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Review Message</label>
+                <textarea
+                  required
+                  rows={3}
+                  value={reviewData.text}
+                  onChange={(e) => setReviewData(prev => ({ ...prev, text: e.target.value }))}
+                  className="w-full rounded-xl border-2 border-gray-100 p-3 text-xs font-medium focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 transition-all outline-none resize-none placeholder:text-gray-300"
+                  placeholder="Tell us about the trails, guide, and views..."
+                />
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="submit"
+                  disabled={isSubmittingReview || reviewNotice.type === 'success'}
+                  className="flex-1 rounded-xl bg-slate-900 py-3 text-[10px] font-black uppercase tracking-widest text-white transition-all hover:bg-primary-600 shadow-lg shadow-slate-200 active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isSubmittingReview ? "Posting..." : "Submit Review"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
