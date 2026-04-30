@@ -1,68 +1,139 @@
 "use client";
 import Image from "next/image";
+import Link from "next/link";
+import { Mail, Phone, Camera, Bird, ArrowRight } from "lucide-react";
+import { FaFacebookF as Facebook } from "react-icons/fa6";
 
 export function Footer() {
+  const currentYear = new Date().getFullYear();
+
   return (
-    <footer className="bg-gray-950 py-16 md:py-24 text-gray-300">
-      <div className="container px-4 md:px-6">
-        <div className="mb-12 md:mb-16 grid gap-12 md:gap-16 sm:grid-cols-2 md:grid-cols-2">
+    <footer className="bg-slate-950 pt-20 pb-10 text-slate-300">
+      <div className="container mx-auto px-4 md:px-6">
+        <div className="grid gap-12 lg:grid-cols-4 md:grid-cols-2">
+          {/* Brand Column */}
           <div className="space-y-6">
-            <div className="flex items-center gap-3">
-              <div className="relative h-12 w-12 overflow-hidden rounded-xl shadow-lg ring-2 ring-white/10">
-                <Image 
-                  src="/logo.jpg" 
-                  alt="Ananta Hikes Logo" 
+            <Link href="/" className="flex items-center gap-3">
+              <div className="relative h-12 w-12 overflow-hidden rounded-xl shadow-lg ring-1 ring-white/20">
+                <Image
+                  src="/logo.jpg"
+                  alt="Ananta Hikes Logo"
                   fill
-                  className="object-cover" 
+                  className="object-cover"
                 />
               </div>
-              <span className="text-xl md:text-2xl font-black text-white tracking-tight uppercase">Ananta Hikes</span>
-            </div>
-            <p className="max-w-sm text-sm md:text-base text-gray-400 leading-relaxed font-medium">
+              <span className="text-xl font-black tracking-tight text-white uppercase">Ananta Hikes</span>
+            </Link>
+            <p className="text-sm leading-relaxed text-slate-400 font-medium">
               Join us in exploring the majestic peaks of the Philippines. We make mountain adventures accessible, safe, and truly unforgettable for everyone.
             </p>
-          </div>
-
-          <div className="space-y-6">
-            <h4 className="text-base md:text-lg font-black text-white uppercase tracking-widest">Connect With Us</h4>
-            <div className="space-y-4">
-              <div className="flex items-center gap-3 text-sm md:text-base text-gray-400 font-medium">
-                <span className="p-2 bg-white/5 rounded-lg text-primary-400">📧</span>
-                <span>hello@anantahikes.com</span>
-              </div>
-              <div className="flex items-center gap-3 text-sm md:text-base text-gray-400 font-medium">
-                <span className="p-2 bg-white/5 rounded-lg text-primary-400">📱</span>
-                <span>+63 (917) 123-4567</span>
-              </div>
-              <div className="flex gap-4 pt-2">
+            <div className="flex gap-4">
+              {[
+                { icon: <Facebook size={18} />, href: "https://www.facebook.com/janmeldoneza09" },
+              ].map((social, i) => (
                 <a
-                  href="https://www.facebook.com/janmeldoneza09"
+                  key={i}
+                  href={social.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="p-3 bg-white/5 rounded-2xl text-gray-400 transition-all hover:bg-primary-600 hover:text-white hover:shadow-xl hover:shadow-primary-600/20 active:scale-95"
+                  className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-slate-400 transition-all hover:bg-primary-600 hover:text-white hover:-translate-y-1"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
-                    <path d="M22 12a10 10 0 1 0-11.56 9.88v-6.99H7.9V12h2.54V9.8c0-2.5 1.49-3.89 3.77-3.89 1.09 0 2.23.19 2.23.19v2.45h-1.26c-1.24 0-1.63.77-1.63 1.56V12h2.77l-.44 2.89h-2.33v6.99A10 10 0 0 0 22 12Z" />
-                  </svg>
+                  {social.icon}
                 </a>
-              </div>
+              ))}
             </div>
+          </div>
+
+          {/* Quick Links */}
+          <div className="space-y-6">
+            <h4 className="text-sm font-black uppercase tracking-widest text-white">Quick Links</h4>
+            <ul className="space-y-3">
+              {[
+                { name: "Destinations", href: "/#mountains" },
+                { name: "Why Choose Us", href: "/#features" },
+                { name: "Upcoming Hikes", href: "/schedule" },
+              ].map((link) => (
+                <li key={link.name}>
+                  <Link href={link.href} className="text-sm font-medium hover:text-primary-400 transition-colors">
+                    {link.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Contact Info */}
+          <div className="space-y-6">
+            <h4 className="text-sm font-black uppercase tracking-widest text-white">Contact Us</h4>
+            <ul className="space-y-4">
+              <li className="flex items-start gap-3">
+                <div className="mt-1 rounded-lg bg-white/5 p-2 text-primary-400">
+                  <Mail size={16} />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Email Address</p>
+                  <p className="text-sm font-medium text-slate-300">hello@anantahikes.com</p>
+                </div>
+              </li>
+              <li className="flex items-start gap-3">
+                <div className="mt-1 rounded-lg bg-white/5 p-2 text-primary-400">
+                  <Phone size={16} />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Phone Number</p>
+                  <p className="text-sm font-medium text-slate-300">+63 (917) 123-4567</p>
+                </div>
+              </li>
+            </ul>
+          </div>
+
+          {/* Newsletter */}
+          <div className="space-y-6">
+            <h4 className="text-sm font-black uppercase tracking-widest text-white">Newsletter</h4>
+            <p className="text-sm text-slate-400 leading-relaxed">
+              Subscribe to get adventure updates and exclusive hiking tips.
+            </p>
+            <form className="relative" onSubmit={(e) => e.preventDefault()}>
+              <input
+                type="email"
+                placeholder="Enter your email"
+                className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all"
+              />
+              <button
+                type="submit"
+                className="absolute right-1.5 top-1.5 flex h-9 w-9 items-center justify-center rounded-lg bg-primary-600 text-white transition-all hover:bg-primary-700 active:scale-95"
+              >
+                <ArrowRight size={16} />
+              </button>
+            </form>
           </div>
         </div>
 
-        <div className="border-t border-white/5 pt-8 md:pt-10 flex flex-col md:flex-row justify-between items-center gap-4 text-xs md:text-sm text-gray-500 font-medium">
-          <p>&copy; 2026 Ananta Hikes. All rights reserved.</p>
-          <p>
-            Developed by{" "}
-            <a
-              href="https://www.facebook.com/code.write.debug.learn.build.repeat.improve.grow"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-white hover:text-primary-400 hover:underline transition-colors"
-            >
-              Jesson Mondejar
-            </a>
-          </p>
+        {/* Bottom Bar */}
+        <div className="mt-20 border-t border-white/5 pt-8">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+            <div className="flex flex-col items-center md:items-start gap-2">
+              <p className="text-xs font-medium text-slate-500">
+                &copy; {currentYear} Ananta Hikes. All rights reserved.
+              </p>
+              {/*  <div className="flex gap-4 text-[10px] font-bold uppercase tracking-widest text-slate-600">
+                <Link href="#" className="hover:text-slate-400">Privacy Policy</Link>
+                <Link href="#" className="hover:text-slate-400">Terms of Service</Link>
+              </div> */}
+            </div>
+
+            <p className="text-xs font-medium text-slate-500">
+              Developed by{" "}
+              <a
+                href="https://www.facebook.com/code.write.debug.learn.build.repeat.improve.grow"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-white hover:text-primary-400 transition-colors"
+              >
+                Jesson Mondejar
+              </a>
+            </p>
+          </div>
         </div>
       </div>
     </footer>
