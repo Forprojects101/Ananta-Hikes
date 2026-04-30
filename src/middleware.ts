@@ -88,6 +88,20 @@ function attachSecurityHeaders(headers: Headers) {
   headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
   headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()");
+  // Content-Security-Policy — restricts scripts, styles, and resources to own origin
+  // Adjust src values if you use external CDNs (fonts, analytics, etc.)
+  headers.set(
+    "Content-Security-Policy",
+    [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // needed by Next.js hydration
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "font-src 'self' https://fonts.gstatic.com",
+      "img-src 'self' data: blob: https://res.cloudinary.com",
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+      "frame-ancestors 'none'",
+    ].join("; ")
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -99,9 +113,11 @@ export async function middleware(req: NextRequest) {
   const method       = req.method;
   const ip           = getIp(req);
 
-  // 1. Skip public paths immediately
+  // 1. Public paths — still go through so we can attach security headers
   if (isPublic(pathname)) {
-    return NextResponse.next();
+    const res = NextResponse.next();
+    attachSecurityHeaders(res.headers);
+    return res;
   }
 
   // 2. Extract Auth Info
