@@ -44,8 +44,8 @@ export function applySecurityHeaders(headers: Headers): void {
       "script-src 'self' 'unsafe-eval' 'unsafe-inline'",      // Next.js requires eval
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
-      "img-src 'self' data: blob: https://res.cloudinary.com https://images.unsplash.com https://*.supabase.co",
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+      "img-src 'self' data: blob: https://res.cloudinary.com https://images.unsplash.com https://*.supabase.co https://lh3.googleusercontent.com",
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.cloudinary.com",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
