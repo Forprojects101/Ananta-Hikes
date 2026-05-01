@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { Search, Edit, Trash2, Plus, Loader2, Check, X, AlertCircle, Megaphone, Link as LinkIcon, Calendar, ImageIcon, Globe, ArrowRight } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { apiRequest } from "@/lib/api-client";
 import Modal from "./Modal";
 
 type Ad = {
@@ -37,6 +39,17 @@ const getInitialFormData = (): AdFormData => ({
 });
 
 export default function AdsManagement() {
+  const { accessToken, logout, setAccessToken } = useAuth();
+
+  const authFetch = useCallback((url: string, options: any = {}) => {
+    return apiRequest(url, {
+      ...options,
+      accessToken,
+      onTokenRefresh: (newToken) => setAccessToken(newToken),
+      onLogout: () => logout(),
+    });
+  }, [accessToken, logout, setAccessToken]);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [ads, setAds] = useState<Ad[]>([]);
   const [loading, setLoading] = useState(false);
@@ -57,7 +70,7 @@ export default function AdsManagement() {
   const loadAds = async () => {
     try {
       setLoading(true);
-      const response = await fetch("/api/admin/ads", { cache: "no-store" });
+      const response = await authFetch("/api/admin/ads", { cache: "no-store" });
       if (!response.ok) throw new Error("Failed to load ads");
       const data = await response.json();
       setAds(data.ads || []);
@@ -72,8 +85,10 @@ export default function AdsManagement() {
   };
 
   useEffect(() => {
-    loadAds();
-  }, []);
+    if (accessToken) {
+      loadAds();
+    }
+  }, [accessToken, authFetch]);
 
   const filteredAds = useMemo(
     () =>
@@ -94,7 +109,7 @@ export default function AdsManagement() {
 
     setIsActionLoading(true);
     try {
-      const response = await fetch("/api/admin/ads", {
+      const response = await authFetch("/api/admin/ads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(addForm),
@@ -139,7 +154,7 @@ export default function AdsManagement() {
 
     setIsActionLoading(true);
     try {
-      const response = await fetch(`/api/admin/ads/${editingAd.id}`, {
+      const response = await authFetch(`/api/admin/ads/${editingAd.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(editForm),
@@ -166,7 +181,7 @@ export default function AdsManagement() {
 
     setIsActionLoading(true);
     try {
-      const response = await fetch(`/api/admin/ads/${deletingId}`, {
+      const response = await authFetch(`/api/admin/ads/${deletingId}`, {
         method: "DELETE",
       });
 
