@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { Search, Shield, User, Mail, Calendar, CheckCircle, AlertCircle } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { apiRequest } from "@/lib/api-client";
 
 type UserRow = {
   id: string;
@@ -14,13 +16,24 @@ type UserRow = {
 };
 
 export default function UserManagement() {
+  const { accessToken, logout, setAccessToken } = useAuth();
+
+  const authFetch = useCallback((url: string, options: any = {}) => {
+    return apiRequest(url, {
+      ...options,
+      accessToken,
+      onTokenRefresh: (newToken) => setAccessToken(newToken),
+      onLogout: () => logout(),
+    });
+  }, [accessToken, logout, setAccessToken]);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [users, setUsers] = useState<UserRow[]>([]);
   const [notice, setNotice] = useState("");
 
   const loadUsers = async () => {
     try {
-      const response = await fetch("/api/admin/dashboard-data", { cache: "no-store" });
+      const response = await authFetch("/api/admin/dashboard-data", { cache: "no-store" });
       if (!response.ok) return;
       const payload = await response.json();
       setUsers((payload?.users || []) as UserRow[]);
@@ -30,8 +43,10 @@ export default function UserManagement() {
   };
 
   useEffect(() => {
-    loadUsers();
-  }, []);
+    if (accessToken) {
+      loadUsers();
+    }
+  }, [accessToken, authFetch]);
 
   const filteredUsers = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
