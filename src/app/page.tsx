@@ -126,7 +126,7 @@ type LandingApiResponse = {
     location: string;
     difficulty: "Beginner" | "Intermediate" | "Advanced";
     elevation_meters: number | null;
-    duration_hours: number | null;
+    duration_hours?: number | null;
     max_participants: number | null;
     image_url: string | null;
     price: number;
