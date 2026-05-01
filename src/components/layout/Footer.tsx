@@ -2,7 +2,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Mail, Phone, Camera, Bird, ArrowRight } from "lucide-react";
-import { FaFacebookF as Facebook } from "react-icons/fa6";
+import { FaFacebookF as Facebook } from "react-icons/fa";
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
