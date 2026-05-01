@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { jwtVerify } from "jose";
+
+const JWT_SECRET = new TextEncoder().encode(
+  process.env.NEXTAUTH_SECRET || "fallback-secret-change-me"
+);
 
 function getSupabaseServerClient() {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -17,37 +22,27 @@ function toJsonArray(value: unknown) {
 }
 
 async function ensureAdmin(request: NextRequest, supabase: any) {
-  const token = request.cookies.get("auth-token")?.value || request.cookies.get("verified-token")?.value;
-  
-  console.log("🔐 [ensureAdmin] Checking auth token:", token ? "Present" : "Missing");
-  
-  if (!token) {
-    console.warn("⚠️ [ensureAdmin] No token found in cookies");
-    return false;
+  try {
+    const authHeader = request.headers.get("Authorization");
+    const accessToken = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : null;
+    
+    if (!accessToken) {
+      console.warn("⚠️ [ensureAdmin] No access token found in headers");
+      return { isAdmin: false, userId: null };
+    }
+
+    const { payload } = await jwtVerify(accessToken, JWT_SECRET);
+    const roleName = payload.role as string;
+    const userId = payload.userId as string;
+    
+    console.log("🔐 [ensureAdmin] User role from JWT:", roleName);
+    
+    const isAdmin = roleName === "Admin" || roleName === "Super Admin";
+    return { isAdmin, userId };
+  } catch (err) {
+    console.warn("⚠️ [ensureAdmin] Token verification failed:", err);
+    return { isAdmin: false, userId: null };
   }
-
-  const { data: user, error } = await supabase
-    .from("users")
-    .select("id, role_id, roles(name)")
-    .eq("id", token)
-    .maybeSingle();
-
-  console.log("🔐 [ensureAdmin] User query result:", { user, error });
-
-  if (error || !user) {
-    console.warn("⚠️ [ensureAdmin] User not found or query error:", error);
-    return false;
-  }
-
-  const roleData = (user as any)?.roles as { name?: string } | undefined;
-  const roleName = roleData?.name;
-  
-  console.log("🔐 [ensureAdmin] User role:", roleName);
-  
-  const isAdmin = roleName === "Admin" || roleName === "Super Admin";
-  console.log("🔐 [ensureAdmin] Is admin:", isAdmin);
-  
-  return isAdmin;
 }
 
 export async function POST(request: NextRequest) {
@@ -55,12 +50,13 @@ export async function POST(request: NextRequest) {
     console.log("🏔️ [POST /mountains] Request received");
     
     const supabase = getSupabaseServerClient();
-    if (!(await ensureAdmin(request, supabase))) {
+    const { isAdmin, userId } = await ensureAdmin(request, supabase);
+    
+    if (!isAdmin) {
       console.warn("⚠️ [POST /mountains] Unauthorized access attempt");
       return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
     }
 
-    const token = request.cookies.get("auth-token")?.value || request.cookies.get("verified-token")?.value;
     const body = await request.json();
     
     console.log("📥 [POST /mountains] Request body keys:", Object.keys(body));
@@ -95,10 +91,10 @@ export async function POST(request: NextRequest) {
     console.log("📊 [POST /mountains] Hike types to link:", hikeTypes?.length || 0);
     console.log("📊 [POST /mountains] Add-ons to link:", addOns?.length || 0);
 
-    if (isUuid(token)) {
-      payload.created_by = token;
-      payload.updated_by = token;
-      console.log("👤 [POST /mountains] User token:", token);
+    if (userId) {
+      payload.created_by = userId;
+      payload.updated_by = userId;
+      console.log("👤 [POST /mountains] User ID:", userId);
     }
 
     if (!payload.name) {
