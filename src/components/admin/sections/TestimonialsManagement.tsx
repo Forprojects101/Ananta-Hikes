@@ -6,7 +6,9 @@ import {
   AlertCircle, MessageSquare, User, Star, Filter, 
   ArrowRight, Camera, ShieldCheck, Eye, EyeOff, ThumbsUp
 } from "lucide-react";
-import { useRef } from "react";
+import { useRef, useCallback } from "react";
+import { useAuth } from "@/context/AuthContext";
+import { apiRequest } from "@/lib/api-client";
 import Modal from "./Modal";
 
 type Testimonial = {
@@ -30,6 +32,17 @@ type PhotoFormData = {
 };
 
 export default function TestimonialsManagement() {
+  const { accessToken, logout, setAccessToken } = useAuth();
+
+  const authFetch = useCallback((url: string, options: any = {}) => {
+    return apiRequest(url, {
+      ...options,
+      accessToken,
+      onTokenRefresh: (newToken) => setAccessToken(newToken),
+      onLogout: () => logout(),
+    });
+  }, [accessToken, logout, setAccessToken]);
+
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -64,13 +77,15 @@ export default function TestimonialsManagement() {
   const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
-    fetchTestimonials();
-  }, []);
+    if (accessToken) {
+      fetchTestimonials();
+    }
+  }, [accessToken, authFetch]);
 
   const fetchTestimonials = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/testimonials", { cache: "no-store" });
+      const res = await authFetch("/api/admin/testimonials", { cache: "no-store" });
       if (!res.ok) throw new Error("Failed to load testimonials");
       const data = await res.json();
       setTestimonials(data.testimonials || []);
@@ -87,7 +102,7 @@ export default function TestimonialsManagement() {
       const formData = new FormData();
       formData.append("file", file);
 
-      const res = await fetch("/api/admin/gallery-upload", {
+      const res = await authFetch("/api/admin/gallery-upload", {
         method: "POST",
         body: formData,
       });
@@ -111,7 +126,7 @@ export default function TestimonialsManagement() {
     e.preventDefault();
     setIsActionLoading(true);
     try {
-      const res = await fetch("/api/admin/testimonials", {
+      const res = await authFetch("/api/admin/testimonials", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(addForm),
@@ -146,7 +161,7 @@ export default function TestimonialsManagement() {
     if (!editingTestimonial) return;
     setIsActionLoading(true);
     try {
-      const res = await fetch("/api/admin/testimonials", {
+      const res = await authFetch("/api/admin/testimonials", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: editingTestimonial.id, ...editForm }),
@@ -166,7 +181,7 @@ export default function TestimonialsManagement() {
     if (!deletingId) return;
     setIsActionLoading(true);
     try {
-      const res = await fetch(`/api/admin/testimonials?id=${deletingId}`, { method: "DELETE" });
+      const res = await authFetch(`/api/admin/testimonials?id=${deletingId}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Deletion failed");
       setNotice({ message: "Testimonial removed", type: 'success' });
       setIsDeleteModalOpen(false);
@@ -180,7 +195,7 @@ export default function TestimonialsManagement() {
 
   const toggleApproval = async (t: Testimonial) => {
     try {
-      const res = await fetch("/api/admin/testimonials", {
+      const res = await authFetch("/api/admin/testimonials", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...t, is_approved: !t.is_approved }),
