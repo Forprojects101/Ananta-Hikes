@@ -57,7 +57,7 @@ export const users = new Map<
 >();
 
 // Database verification code functions
-export async function storeVerificationCodeDb(email: string, code: string) {
+export async function storeVerificationCodeDb(email: string, code: string, codeType: string = "email_verification") {
   try {
     const { createClient } = await import("@supabase/supabase-js");
     const supabase = createClient(
@@ -72,7 +72,7 @@ export async function storeVerificationCodeDb(email: string, code: string) {
       .insert({
         email,
         code,
-        code_type: "email_verification",
+        code_type: codeType,
         is_used: false,
         attempts: 0,
         is_locked: false,
@@ -94,7 +94,7 @@ export async function storeVerificationCodeDb(email: string, code: string) {
   }
 }
 
-export async function getVerificationCodeDb(email: string, code: string) {
+export async function getVerificationCodeDb(email: string, code: string, codeType: string = "email_verification") {
   try {
     const { createClient } = await import("@supabase/supabase-js");
     const supabase = createClient(
@@ -107,6 +107,7 @@ export async function getVerificationCodeDb(email: string, code: string) {
       .select("*")
       .eq("email", email)
       .eq("code", code)
+      .eq("code_type", codeType)
       .eq("is_used", false)
       .gt("expires_at", new Date().toISOString())
       .single();
