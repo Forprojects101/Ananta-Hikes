@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { jwtVerify } from "jose";
+
+const JWT_SECRET = new TextEncoder().encode(
+  process.env.NEXTAUTH_SECRET || "fallback-secret-change-me"
+);
 
 function getSupabaseServerClient() {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -13,37 +18,26 @@ function isUuid(value: string | undefined) {
 }
 
 async function ensureAdmin(request: NextRequest, supabase: any) {
-  const token = request.cookies.get("auth-token")?.value || request.cookies.get("verified-token")?.value;
+  try {
+    const authHeader = request.headers.get("Authorization");
+    const accessToken = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : null;
+    
+    if (!accessToken) {
+      console.warn("⚠️ [ensureAdmin] No access token found in headers");
+      return false;
+    }
 
-  console.log("🔐 [ensureAdmin] Checking auth token:", token ? "Present" : "Missing");
-
-  if (!token) {
-    console.warn("⚠️ [ensureAdmin] No token found in cookies");
+    const { payload } = await jwtVerify(accessToken, JWT_SECRET);
+    const roleName = payload.role as string;
+    
+    console.log("🔐 [ensureAdmin] User role from JWT:", roleName);
+    
+    const isAdmin = roleName === "Admin" || roleName === "Super Admin";
+    return isAdmin;
+  } catch (err) {
+    console.warn("⚠️ [ensureAdmin] Token verification failed:", err);
     return false;
   }
-
-  const { data: user, error } = await supabase
-    .from("users")
-    .select("id, role_id, roles(name)")
-    .eq("id", token)
-    .maybeSingle();
-
-  console.log("🔐 [ensureAdmin] User query result:", { user, error });
-
-  if (error || !user) {
-    console.warn("⚠️ [ensureAdmin] User not found or query error:", error);
-    return false;
-  }
-
-  const roleData = (user as any)?.roles as { name?: string } | undefined;
-  const roleName = roleData?.name;
-
-  console.log("🔐 [ensureAdmin] User role:", roleName);
-
-  const isAdmin = roleName === "Admin" || roleName === "Super Admin";
-  console.log("🔐 [ensureAdmin] Is admin:", isAdmin);
-
-  return isAdmin;
 }
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
