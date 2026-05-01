@@ -2,8 +2,10 @@
 
 import Image from "next/image";
 import { useBooking } from "@/context/BookingContext";
+import { useAuth } from "@/context/AuthContext";
+import { apiRequest } from "@/lib/api-client";
 import { ArrowRight, MapPinned, Mountain, Loader, FileText, CheckCircle2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 interface MountainData {
   id: string;
@@ -20,6 +22,16 @@ interface MountainData {
 
 export default function MountainSelection() {
   const { package: bookingPackage, updatePackage, setCurrentStep } = useBooking();
+  const { accessToken, logout, setAccessToken } = useAuth();
+
+  const authFetch = useCallback((url: string, options: any = {}) => {
+    return apiRequest(url, {
+      ...options,
+      accessToken,
+      onTokenRefresh: (newToken) => setAccessToken(newToken),
+      onLogout: () => logout(),
+    });
+  }, [accessToken, logout, setAccessToken]);
   const [mountains, setMountains] = useState<MountainData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -32,7 +44,7 @@ export default function MountainSelection() {
         console.log("🏔️ [MountainSelection] Fetching mountains from /api/mountains");
         
         // Add timestamp to bust cache
-        const response = await fetch(`/api/mountains?t=${Date.now()}`, { 
+        const response = await authFetch(`/api/mountains?t=${Date.now()}`, { 
           cache: "no-store",
           headers: {
             "Cache-Control": "no-cache, no-store, must-revalidate",
