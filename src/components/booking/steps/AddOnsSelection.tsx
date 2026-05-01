@@ -1,8 +1,10 @@
 "use client";
 
 import { useBooking } from "@/context/BookingContext";
+import { useAuth } from "@/context/AuthContext";
+import { apiRequest } from "@/lib/api-client";
 import { ArrowLeft, ArrowRight, Loader } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 type AddOnData = {
   id: string;
@@ -13,6 +15,16 @@ type AddOnData = {
 
 export default function AddOnsSelection() {
   const { package: bookingPackage, updatePackage, setCurrentStep } = useBooking();
+  const { accessToken, logout, setAccessToken } = useAuth();
+
+  const authFetch = useCallback((url: string, options: any = {}) => {
+    return apiRequest(url, {
+      ...options,
+      accessToken,
+      onTokenRefresh: (newToken) => setAccessToken(newToken),
+      onLogout: () => logout(),
+    });
+  }, [accessToken, logout, setAccessToken]);
   const [addOnsData, setAddOnsData] = useState<AddOnData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +34,7 @@ export default function AddOnsSelection() {
       try {
         setLoading(true);
         // Filter add-ons by selected mountain
-        const response = await fetch(
+        const response = await authFetch(
           `/api/add-ons?mountain_id=${bookingPackage.mountainId}`,
           { cache: "no-store" }
         );
