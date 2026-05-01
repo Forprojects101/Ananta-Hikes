@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Save } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { apiRequest } from "@/lib/api-client";
 
 type ContentSettingRow = {
   key: string;
@@ -10,6 +12,17 @@ type ContentSettingRow = {
 };
 
 export default function SystemSettings() {
+  const { accessToken, logout, setAccessToken } = useAuth();
+
+  const authFetch = useCallback((url: string, options: any = {}) => {
+    return apiRequest(url, {
+      ...options,
+      accessToken,
+      onTokenRefresh: (newToken) => setAccessToken(newToken),
+      onLogout: () => logout(),
+    });
+  }, [accessToken, logout, setAccessToken]);
+
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
 
@@ -21,7 +34,7 @@ export default function SystemSettings() {
 
   useEffect(() => {
     const loadSettings = async () => {
-      const response = await fetch("/api/admin/settings", { cache: "no-store" });
+      const response = await authFetch("/api/admin/settings", { cache: "no-store" });
       if (!response.ok) return;
       const payload = await response.json();
       const data = payload?.contentSettings;
@@ -35,8 +48,10 @@ export default function SystemSettings() {
       });
     };
 
-    loadSettings();
-  }, []);
+    if (accessToken) {
+      loadSettings();
+    }
+  }, [accessToken, authFetch]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -63,7 +78,7 @@ export default function SystemSettings() {
       },
     ];
 
-    const response = await fetch("/api/admin/settings", {
+    const response = await authFetch("/api/admin/settings", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
