@@ -10,6 +10,7 @@ import {
   Mail,
   MapPin,
   Mountain,
+  Compass,
   ShieldCheck,
   Sparkles,
   Star,
@@ -703,18 +704,21 @@ function TourGuideSection() {
       <div className="container mx-auto px-4 md:px-6">
         <div className="overflow-hidden rounded-[3rem] bg-white shadow-2xl shadow-slate-200/50 border border-slate-100">
           <div className="grid lg:grid-cols-2 gap-0">
-            <div className="relative h-full min-h-[450px] lg:min-h-full overflow-hidden">
+            <div
+              className="relative h-full min-h-[450px] lg:min-h-full overflow-hidden group cursor-pointer"
+              tabIndex={0}
+            >
               <Image
                 src="/11.jpg"
                 alt="Tour Guide"
                 fill
                 priority
                 sizes="(max-width: 1024px) 100vw, 50vw"
-                className="object-cover object-center transition-transform duration-700 hover:scale-105"
+                className="object-cover object-center transition-transform duration-700 group-hover:scale-105 group-focus:scale-105 group-active:scale-105"
               />
               <div className="absolute inset-0 bg-gradient-to-r from-slate-950/40 to-transparent lg:hidden" />
-              <div className="absolute bottom-8 left-8 right-8">
-                <div className="inline-block rounded-2xl bg-white/90 p-6 backdrop-blur-md shadow-2xl animate-gentle-bounce">
+              <div className="absolute bottom-8 left-8 right-8 transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] transform translate-y-12 opacity-0 scale-95 pointer-events-none group-hover:translate-y-0 group-hover:opacity-100 group-hover:scale-100 group-focus:translate-y-0 group-focus:opacity-100 group-focus:scale-100 group-active:translate-y-0 group-active:opacity-100 group-active:scale-100">
+                <div className="inline-block rounded-2xl bg-white/90 p-6 backdrop-blur-md shadow-2xl">
                   <p className="text-sm font-black italic text-slate-900 leading-relaxed">
                     &quot;Bound by the spirits of the mountains, we guide with heritage and heart.&quot;
                   </p>
@@ -732,31 +736,31 @@ function TourGuideSection() {
                 Crafting Highland <span className="text-emerald-600">Legacies</span>
               </h3>
 
-              <div className="space-y-8">
+              <div className="space-y-6 md:space-y-8">
                 {[
                   {
-                    icon: <MapPin className="text-emerald-600" />,
-                    title: "Indigenous Heritage",
-                    desc: "Our team includes Bagobo-Tagabawa experts with generations of ancestral trail knowledge."
+                    icon: <Compass />,
+                    title: "Expert Local Guides",
+                    desc: "Guides with deep trail knowledge. You get safe routes, clear direction, and real local insight."
                   },
                   {
-                    icon: <Mountain className="text-emerald-600" />,
+                    icon: <Mountain />,
                     title: "Eco-Conscious Trekking",
-                    desc: "Strict Leave No Trace standards to preserve mountain biodiversity and preserve trails."
+                    desc: "Follow strict Leave No Trace practices. Protect forests, wildlife, and every trail you walk."
                   },
                   {
-                    icon: <ShieldCheck className="text-emerald-600" />,
+                    icon: <ShieldCheck />,
                     title: "Safety Standard",
                     desc: "Comprehensive insurance and on-trail support for all major boxed summit routes."
                   }
                 ].map((item, i) => (
-                  <div key={i} className="flex items-start gap-4 group">
-                    <div className="mt-1 flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-50 transition-colors group-hover:bg-emerald-600 group-hover:text-white">
+                  <div key={i} className="flex items-start gap-4 md:gap-5 group cursor-pointer p-3 md:p-4 -m-3 md:-m-4 rounded-2xl transition-colors duration-500 hover:bg-emerald-50/50">
+                    <div className="mt-1 flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:bg-emerald-600 group-hover:text-white group-hover:scale-110 group-hover:rotate-3 group-hover:shadow-lg group-hover:shadow-emerald-200">
                       {item.icon}
                     </div>
-                    <div>
-                      <h4 className="text-lg font-black text-slate-900 tracking-tight">{item.title}</h4>
-                      <p className="mt-1 text-sm text-slate-500 font-medium leading-relaxed">{item.desc}</p>
+                    <div className="transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:translate-x-1.5">
+                      <h4 className="text-lg font-black text-slate-900 tracking-tight transition-colors duration-300 group-hover:text-emerald-700">{item.title}</h4>
+                      <p className="mt-1 md:mt-1.5 text-sm text-slate-500 font-medium leading-relaxed transition-colors duration-300 group-hover:text-slate-600">{item.desc}</p>
                     </div>
                   </div>
                 ))}
@@ -812,14 +816,14 @@ function GroupPhotosSection({ featuredPhoto }: { featuredPhoto: GroupHikePhoto |
           </div>
         ) : (
           <article
-            className="group relative mx-auto max-w-6xl overflow-hidden rounded-[2.5rem] md:rounded-[3.5rem] bg-slate-900 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.3)] cursor-pointer transition-all duration-700 hover:shadow-[0_48px_80px_-20px_rgba(0,0,0,0.4)] md:hover:-translate-y-2"
+            className="group relative mx-auto max-w-4xl overflow-hidden rounded-[2.5rem] md:rounded-[3.5rem] bg-slate-900 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.3)] cursor-pointer transition-all duration-700 hover:shadow-[0_48px_80px_-20px_rgba(0,0,0,0.4)] md:hover:-translate-y-2"
             onClick={() => setExpandedPhoto(featuredPhoto)}
           >
-            <div className="relative aspect-[4/3] md:aspect-[21/9] w-full overflow-hidden">
+            <div className="relative w-full overflow-hidden">
               <img
                 src={featuredPhoto.image}
                 alt={featuredPhoto.alt}
-                className="h-full w-full object-cover transition-transform duration-[2s] cubic-bezier(0.2, 0, 0, 1) group-hover:scale-110"
+                className="w-full h-auto block transition-transform duration-[2s] cubic-bezier(0.2, 0, 0, 1) group-hover:scale-110"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent opacity-90 md:group-hover:opacity-70 transition-opacity duration-700" />
 
@@ -835,9 +839,14 @@ function GroupPhotosSection({ featuredPhoto }: { featuredPhoto: GroupHikePhoto |
               <div className="absolute bottom-0 left-0 right-0 p-6 md:p-10 lg:p-14">
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 md:gap-8">
                   <div className="max-w-2xl transform transition-transform duration-700 md:group-hover:translate-x-2">
-                    <h3 className="text-2xl md:text-5xl lg:text-6xl font-black text-white tracking-tight leading-[1.2] md:leading-[1.1] mb-4 md:mb-6 drop-shadow-2xl">
+                    <h3 className="text-xl md:text-3xl lg:text-4xl font-black text-white tracking-tight leading-[1.2] md:leading-[1.1] mb-2 md:mb-4 drop-shadow-2xl">
                       {featuredPhoto.title}
                     </h3>
+                    {featuredPhoto.alt && (
+                      <p className="text-sm md:text-lg text-white/90 mb-4 md:mb-6 font-medium max-w-xl drop-shadow-md line-clamp-2">
+                        {featuredPhoto.alt}
+                      </p>
+                    )}
                     <div className="flex flex-wrap items-center gap-3 md:gap-6 text-[10px] md:text-[11px] lg:text-sm font-bold text-white/80">
                       <span className="flex items-center gap-1.5 md:gap-2 bg-white/10 px-3 py-1.5 md:px-4 md:py-2 rounded-full backdrop-blur-md border border-white/10"><MapPin size={14} className="text-primary-400" /> {featuredPhoto.location}</span>
                       <span className="flex items-center gap-1.5 md:gap-2 bg-white/10 px-3 py-1.5 md:px-4 md:py-2 rounded-full backdrop-blur-md border border-white/10"><Calendar size={14} className="text-primary-400" /> {featuredPhoto.date}</span>
@@ -871,10 +880,10 @@ function GroupPhotosSection({ featuredPhoto }: { featuredPhoto: GroupHikePhoto |
 
         {expandedPhoto && (
           <div className="fixed inset-0 z-[120] flex items-center justify-center p-2 md:p-8 lg:p-12 animate-in fade-in duration-500" onClick={() => setExpandedPhoto(null)}>
-            <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md" />
+            <div className="absolute inset-0 bg-slate-950/55 backdrop-blur-sm" />
 
             <div
-              className="relative w-full max-w-7xl max-h-[95vh] lg:max-h-[90vh] overflow-hidden rounded-[2rem] md:rounded-[2.5rem] bg-white shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] animate-in zoom-in-95 duration-500"
+              className="relative w-full max-w-5xl max-h-[85vh] lg:max-h-[80vh] overflow-hidden rounded-[2rem] md:rounded-[2.5rem] bg-white shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] animate-in zoom-in-95 duration-500"
               onClick={(e) => e.stopPropagation()}
             >
               <button
@@ -886,16 +895,23 @@ function GroupPhotosSection({ featuredPhoto }: { featuredPhoto: GroupHikePhoto |
 
               <div className="flex flex-col lg:flex-row h-full">
                 {/* Immersive Image Section */}
-                <div className="relative flex-[1.2] lg:flex-[1.4] bg-slate-950 overflow-hidden group/modal-img">
+                <div className="relative flex-[1.2] lg:flex-[1.4] bg-slate-950 overflow-hidden group/modal-img flex items-center justify-center">
+                  {/* Ambient Blurred Background to Fill Empty Space */}
+                  <div
+                    className="absolute inset-0 bg-cover bg-center blur-2xl scale-110 opacity-50 transition-transform duration-700 lg:group-hover/modal-img:scale-125"
+                    style={{ backgroundImage: `url(${expandedPhoto.image})` }}
+                  />
+
+                  {/* Fully Visible Image */}
                   <img
                     src={expandedPhoto.image}
                     alt={expandedPhoto.alt}
-                    className="h-full w-full object-contain lg:object-cover transition-transform duration-700 lg:group-hover/modal-img:scale-105"
+                    className="relative z-10 w-full h-full object-contain transition-transform duration-700 lg:group-hover/modal-img:scale-105"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent opacity-60 lg:opacity-0 lg:group-hover/modal-img:opacity-100 transition-opacity duration-500" />
+                  <div className="absolute inset-0 z-20 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent opacity-80 lg:opacity-0 lg:group-hover/modal-img:opacity-100 transition-opacity duration-500 pointer-events-none" />
 
                   {/* Floating Badge on Image */}
-                  <div className="absolute bottom-4 left-4 md:bottom-8 md:left-8">
+                  <div className="absolute bottom-4 left-4 md:bottom-8 md:left-8 z-30">
                     <div className="inline-flex items-center gap-2 rounded-xl md:rounded-2xl bg-white/10 px-3 py-1.5 md:px-4 md:py-2 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-white backdrop-blur-xl border border-white/10 md:border-white/20">
                       <MapPin size={10} className="text-primary-400 md:size-3" />
                       <span>{expandedPhoto.location}</span>
@@ -918,16 +934,17 @@ function GroupPhotosSection({ featuredPhoto }: { featuredPhoto: GroupHikePhoto |
                         </div>
                       </div>
 
-                      <h3 className="text-2xl md:text-4xl lg:text-5xl font-black text-slate-950 tracking-tight leading-[1.2] md:leading-[1.1] mb-4 md:mb-6">
+                      <h3 className="text-xl md:text-2xl lg:text-3xl font-black text-slate-950 tracking-tight leading-[1.2] md:leading-[1.1] mb-2 md:mb-4">
                         {expandedPhoto.title}
                       </h3>
 
-                      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 mb-6 md:mb-8 flex items-center gap-2">
-                        <span className="h-px w-6 md:w-8 bg-slate-200"></span>
-                        With Gratitude
-                      </p>
+                      {expandedPhoto.alt && (
+                        <p className="text-base md:text-lg text-slate-600 mb-6 md:mb-8 leading-relaxed">
+                          {expandedPhoto.alt}
+                        </p>
+                      )}
 
-                      {expandedPhoto.testimonial ? (
+                      {expandedPhoto.testimonial && (
                         <div className="relative mb-8 md:mb-12">
                           <div className="absolute -top-4 -left-2 md:-top-6 md:-left-4 text-5xl md:text-7xl text-primary-500/10 font-serif leading-none">&ldquo;</div>
                           <p className="text-base md:text-lg lg:text-xl font-medium italic text-slate-700 leading-relaxed relative z-10">
@@ -942,10 +959,6 @@ function GroupPhotosSection({ featuredPhoto }: { featuredPhoto: GroupHikePhoto |
                             </p>
                           </div>
                         </div>
-                      ) : (
-                        <p className="text-sm md:text-lg text-slate-500 leading-relaxed mb-8 md:mb-12">
-                          Because of you, we keep climbing. Every journey is a testament to the human spirit and our connection with nature.
-                        </p>
                       )}
                     </div>
 
@@ -1085,7 +1098,7 @@ function CTASection({
           fill
           className="object-cover object-center"
         />
-        <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-[2px]" />
+        <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-[1px]" />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent" />
       </div>
 
@@ -1176,7 +1189,7 @@ function PromoPopup({
           )}
           {/* Gradient to smooth the transition between image and content */}
           <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-black/40 pointer-events-none" />
-          
+
           {/* Floating Badge */}
           <div className="absolute bottom-4 left-6">
             <div className="inline-flex items-center gap-1.5 rounded-full bg-white/95 backdrop-blur-md px-3.5 py-1.5 text-[10px] font-black uppercase tracking-widest text-primary-600 shadow-sm">
