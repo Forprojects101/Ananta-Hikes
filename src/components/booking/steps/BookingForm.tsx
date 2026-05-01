@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { useBooking } from "@/context/BookingContext";
 import { useAuth } from "@/context/AuthContext";
+import { apiRequest } from "@/lib/api-client";
 import { ArrowLeft, ArrowRight } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
 import { validatePhoneNumber, validateEmail } from "@/lib/validation";
 import { generateReferenceNumber } from "@/lib/utils";
 import { calculateBookingTotal } from "@/lib/bookingPricing";
@@ -11,7 +12,16 @@ import type { Booking } from "@/types";
 
 export default function BookingForm() {
   const { package: bookingPackage, setCurrentStep, setBooking } = useBooking();
-  const { user } = useAuth();
+  const { user, accessToken, logout, setAccessToken } = useAuth();
+
+  const authFetch = useCallback((url: string, options: any = {}) => {
+    return apiRequest(url, {
+      ...options,
+      accessToken,
+      onTokenRefresh: (newToken) => setAccessToken(newToken),
+      onLogout: () => logout(),
+    });
+  }, [accessToken, logout, setAccessToken]);
   const [formData, setFormData] = useState({
     customerName: "",
     customerEmail: "",
@@ -110,7 +120,7 @@ export default function BookingForm() {
 
     // Save booking to database
     try {
-      const response = await fetch("/api/bookings", {
+      const response = await authFetch("/api/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newBooking),
