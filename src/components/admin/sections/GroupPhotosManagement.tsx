@@ -8,7 +8,9 @@ import {
   Mountain, Star, Filter, ArrowRight, Camera,
   Users as UsersIcon, LayoutGrid, Image as ImagePlaceholder, Upload
 } from "lucide-react";
-import { useRef } from "react";
+import { useRef, useCallback } from "react";
+import { useAuth } from "@/context/AuthContext";
+import { apiRequest } from "@/lib/api-client";
 import Modal from "./Modal";
 import Cropper, { Area } from "react-easy-crop";
 import { getCroppedImage } from "@/lib/imageCrop";
@@ -53,6 +55,17 @@ const getInitialFormData = (): PhotoFormData => ({
 });
 
 export default function GroupPhotosManagement() {
+  const { accessToken, logout, setAccessToken } = useAuth();
+
+  const authFetch = useCallback((url: string, options: any = {}) => {
+    return apiRequest(url, {
+      ...options,
+      accessToken,
+      onTokenRefresh: (newToken) => setAccessToken(newToken),
+      onLogout: () => logout(),
+    });
+  }, [accessToken, logout, setAccessToken]);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [photos, setPhotos] = useState<GroupPhoto[]>([]);
   const [mountains, setMountains] = useState<{ id: string; name: string }[]>([]);
@@ -88,8 +101,8 @@ export default function GroupPhotosManagement() {
     try {
       setLoading(true);
       const [photosRes, mountainsRes] = await Promise.all([
-        fetch("/api/admin/group-photos", { cache: "no-store" }),
-        fetch("/api/admin/mountains-list", { cache: "no-store" })
+        authFetch("/api/admin/group-photos", { cache: "no-store" }),
+        authFetch("/api/admin/mountains-list", { cache: "no-store" })
       ]);
 
       if (!photosRes.ok) throw new Error("Failed to load photos");
@@ -111,8 +124,10 @@ export default function GroupPhotosManagement() {
   };
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (accessToken) {
+      loadData();
+    }
+  }, [accessToken, authFetch]);
 
   const filteredPhotos = useMemo(
     () =>
@@ -134,7 +149,7 @@ export default function GroupPhotosManagement() {
 
     setIsActionLoading(true);
     try {
-      const response = await fetch("/api/admin/group-photos", {
+      const response = await authFetch("/api/admin/group-photos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(addForm),
@@ -175,7 +190,7 @@ export default function GroupPhotosManagement() {
 
     setIsActionLoading(true);
     try {
-      const response = await fetch("/api/admin/group-photos", {
+      const response = await authFetch("/api/admin/group-photos", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...editForm, id: editingPhoto.id }),
@@ -197,7 +212,7 @@ export default function GroupPhotosManagement() {
     if (!deletingId) return;
     setIsActionLoading(true);
     try {
-      const response = await fetch(`/api/admin/group-photos?id=${deletingId}`, { method: "DELETE" });
+      const response = await authFetch(`/api/admin/group-photos?id=${deletingId}`, { method: "DELETE" });
       if (!response.ok) throw new Error("Failed to delete record");
 
       setNotice({ message: "Photo removed from gallery", type: "success" });
@@ -239,7 +254,7 @@ export default function GroupPhotosManagement() {
       const formData = new FormData();
       formData.append("file", croppedFile);
 
-      const res = await fetch("/api/admin/gallery-upload", {
+      const res = await authFetch("/api/admin/gallery-upload", {
         method: "POST",
         body: formData,
       });
