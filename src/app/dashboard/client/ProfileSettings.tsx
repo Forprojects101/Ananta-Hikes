@@ -2,8 +2,8 @@
 
 import { useAuth } from "@/context/AuthContext";
 import Image from "next/image";
-import { AlertTriangle, Check, Clock, Mail, MapPin, Phone, Trash2, Upload, RotateCcw, Maximize2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { AlertTriangle, Check, Clock, Mail, MapPin, Phone, Trash2, Upload, RotateCcw, Maximize2, Key, Lock, Eye, EyeOff } from "lucide-react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Sidebar } from "./navigation";
 import { ClientProtectedRoute } from "@/components/ClientProtectedRoute";
@@ -44,6 +44,131 @@ function DashboardProfileContent() {
     phone: user?.phone || "",
     address: [user?.city, user?.province].filter(Boolean).join(", "),
   });
+
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [changePasswordMessage, setChangePasswordMessage] = useState<string | null>(null);
+  const [isCurrentPasswordVerified, setIsCurrentPasswordVerified] = useState(false);
+  const [isVerifyingCurrent, setIsVerifyingCurrent] = useState(false);
+  const [passwordChangedSuccess, setPasswordChangedSuccess] = useState(false);
+
+  const passwordChecks = useMemo(() => {
+    return {
+      minLength: newPassword.length >= 8,
+      hasUppercase: /[A-Z]/.test(newPassword),
+      hasLowercase: /[a-z]/.test(newPassword),
+      hasNumber: /[0-9]/.test(newPassword),
+      hasSpecialChar: /[!@#$%^&*(),.?":{}|<>]/.test(newPassword),
+    };
+  }, [newPassword]);
+
+  const passwordStrengthScore = useMemo(() => {
+    return Object.values(passwordChecks).filter(Boolean).length;
+  }, [passwordChecks]);
+
+  const isStrongPassword = passwordStrengthScore >= 4 && passwordChecks.minLength;
+  const passwordsMatch = newPassword === confirmNewPassword;
+
+  const handleVerifyCurrentPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setChangePasswordMessage(null);
+
+    if (!currentPassword) {
+      setChangePasswordMessage("❌ Please enter your current password.");
+      return;
+    }
+
+    setIsVerifyingCurrent(true);
+
+    try {
+      const response = await fetch("/api/user/verify-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-email": user?.email || "",
+          ...(accessToken ? { "Authorization": `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify({ password: currentPassword }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to verify password");
+      }
+
+      setIsCurrentPasswordVerified(true);
+      setChangePasswordMessage(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Verification failed";
+      setChangePasswordMessage(`❌ ${message}`);
+    } finally {
+      setIsVerifyingCurrent(false);
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setChangePasswordMessage(null);
+
+    if (!currentPassword || !newPassword || !confirmNewPassword) {
+      setChangePasswordMessage("❌ Please fill in all password fields.");
+      return;
+    }
+
+    if (currentPassword === newPassword) {
+      setChangePasswordMessage("❌ New password cannot be the same as your current password.");
+      return;
+    }
+
+    if (!isStrongPassword) {
+      setChangePasswordMessage("❌ Use a stronger password with at least 4 requirements.");
+      return;
+    }
+
+    if (!passwordsMatch) {
+      setChangePasswordMessage("❌ New passwords do not match.");
+      return;
+    }
+
+    if (!user?.email) {
+      setChangePasswordMessage("❌ Unable to identify account.");
+      return;
+    }
+
+    setIsChangingPassword(true);
+
+    try {
+      const response = await fetch("/api/user/change-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-email": user.email,
+          ...(accessToken ? { "Authorization": `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to change password");
+      }
+
+      setChangePasswordMessage("✅ Password successfully updated!");
+      setPasswordChangedSuccess(true);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to change password";
+      setChangePasswordMessage(`❌ ${message}`);
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
 
   useEffect(() => {
     if (!user) {
@@ -548,6 +673,36 @@ function DashboardProfileContent() {
               )}
             </div>
 
+            {/* Change Password */}
+            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5 xl:shadow-md mt-5">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-600">
+                  <Key size={14} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-sm font-semibold text-gray-900 sm:text-base">Password & Security</h3>
+                  <p className="mt-1 text-xs leading-5 text-gray-600 sm:text-sm sm:leading-6">
+                    Update your password to keep your account secure.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  setShowChangePasswordModal(true);
+                  setIsCurrentPasswordVerified(false);
+                  setPasswordChangedSuccess(false);
+                  setCurrentPassword("");
+                  setNewPassword("");
+                  setConfirmNewPassword("");
+                  setChangePasswordMessage(null);
+                }}
+                className="mt-4 w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 hover:text-gray-900"
+              >
+                Change Password
+              </button>
+            </div>
+
             {/* Danger Zone */}
             <div className="rounded-2xl border border-red-200 bg-gradient-to-b from-white to-red-50/40 p-6 shadow-sm xl:border-red-100 xl:bg-white xl:shadow-lg">
               <div className="mb-4 flex items-center gap-2 text-red-600">
@@ -683,6 +838,206 @@ function DashboardProfileContent() {
                 </button>
               </p>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showChangePasswordModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto custom-scrollbar rounded-2xl bg-white p-6 shadow-2xl">
+            {!passwordChangedSuccess && (
+              <>
+                <h3 className="mb-2 text-xl font-bold text-gray-900">Change Password</h3>
+                <p className="mb-6 text-sm text-gray-600">
+                  {isCurrentPasswordVerified ? "Create a new strong password for your account." : "First, verify your current password to continue."}
+                </p>
+              </>
+            )}
+
+            {!isCurrentPasswordVerified ? (
+              <form onSubmit={handleVerifyCurrentPassword} className="space-y-4">
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">Current Password</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                    <input
+                      type={showCurrentPassword ? "text" : "password"}
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      className="h-11 w-full rounded-xl border border-gray-300 bg-gray-50 py-2 pl-10 pr-11 text-sm focus:border-primary-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                      placeholder="Enter current password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    >
+                      {showCurrentPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                </div>
+
+                {changePasswordMessage && (
+                  <div className={`rounded-lg px-4 py-3 text-sm font-medium ${
+                    changePasswordMessage.startsWith("✅") 
+                      ? "bg-green-50 text-green-700 border border-green-200"
+                      : "bg-red-50 text-red-700 border border-red-200"
+                  }`}>
+                    {changePasswordMessage}
+                  </div>
+                )}
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowChangePasswordModal(false);
+                      setCurrentPassword("");
+                      setIsCurrentPasswordVerified(false);
+                      setChangePasswordMessage(null);
+                    }}
+                    className="flex-1 rounded-lg border border-gray-300 py-2.5 font-semibold text-gray-700 transition hover:bg-gray-50"
+                    disabled={isVerifyingCurrent}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isVerifyingCurrent || !currentPassword}
+                    className="flex-1 rounded-lg bg-primary-600 py-2.5 font-semibold text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {isVerifyingCurrent ? "Verifying..." : "Verify & Continue"}
+                  </button>
+                </div>
+              </form>
+            ) : passwordChangedSuccess ? (
+              <div className="text-center py-6">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                  <Check size={32} />
+                </div>
+                <h3 className="mb-2 text-2xl font-bold text-gray-900">Password Updated!</h3>
+                <p className="mb-8 text-sm text-gray-600">
+                  Your password has been successfully changed. Would you like to stay logged in or log out to test your new credentials?
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setShowChangePasswordModal(false);
+                      setPasswordChangedSuccess(false);
+                      setCurrentPassword("");
+                      setNewPassword("");
+                      setConfirmNewPassword("");
+                      setIsCurrentPasswordVerified(false);
+                      setChangePasswordMessage(null);
+                    }}
+                    className="flex-1 rounded-xl border border-gray-300 py-3 font-semibold text-gray-700 transition hover:bg-gray-50"
+                  >
+                    Stay Logged In
+                  </button>
+                  <button
+                    onClick={async () => {
+                      await logout();
+                    }}
+                    className="flex-1 rounded-xl bg-primary-600 py-3 font-semibold text-white transition hover:bg-primary-700"
+                  >
+                    Logout Now
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleChangePassword} className="space-y-4">
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">New Password</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                    <input
+                      type={showNewPassword ? "text" : "password"}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="h-11 w-full rounded-xl border border-gray-300 bg-gray-50 py-2 pl-10 pr-11 text-sm focus:border-primary-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                      placeholder="Enter new password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    >
+                      {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+
+                  {newPassword.length > 0 && (
+                    <div className="mt-1.5 rounded-xl border border-gray-200 bg-gray-50 p-2">
+                      <div className="mb-1 flex items-center justify-between">
+                        <span className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Password strength</span>
+                        <span className={`text-[10px] font-bold ${isStrongPassword ? "text-emerald-600" : "text-amber-600"}`}>
+                          {isStrongPassword ? "Strong" : "Weak"}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-5 gap-1">
+                        {[1, 2, 3, 4, 5].map((level) => (
+                          <span key={level} className={`h-1 rounded-full ${level <= passwordStrengthScore ? (passwordStrengthScore >= 4 ? "bg-emerald-500" : "bg-amber-500") : "bg-gray-200"}`} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">Confirm New Password</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                    <input
+                      type={showNewPassword ? "text" : "password"}
+                      value={confirmNewPassword}
+                      onChange={(e) => setConfirmNewPassword(e.target.value)}
+                      className="h-11 w-full rounded-xl border border-gray-300 bg-gray-50 py-2 pl-10 pr-11 text-sm focus:border-primary-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                      placeholder="Re-enter new password"
+                    />
+                  </div>
+                  {confirmNewPassword.length > 0 && (
+                    <p className={`mt-2 text-xs font-medium ${passwordsMatch ? "text-emerald-600" : "text-red-600"}`}>
+                      {passwordsMatch ? "✓ Passwords match" : "Passwords do not match"}
+                    </p>
+                  )}
+                </div>
+
+                {changePasswordMessage && (
+                  <div className={`rounded-lg px-4 py-3 text-sm font-medium ${
+                    changePasswordMessage.startsWith("✅") 
+                      ? "bg-green-50 text-green-700 border border-green-200"
+                      : "bg-red-50 text-red-700 border border-red-200"
+                  }`}>
+                    {changePasswordMessage}
+                  </div>
+                )}
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowChangePasswordModal(false);
+                      setCurrentPassword("");
+                      setNewPassword("");
+                      setConfirmNewPassword("");
+                      setIsCurrentPasswordVerified(false);
+                      setChangePasswordMessage(null);
+                    }}
+                    className="flex-1 rounded-lg border border-gray-300 py-2.5 font-semibold text-gray-700 transition hover:bg-gray-50"
+                    disabled={isChangingPassword}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isChangingPassword || !newPassword || !confirmNewPassword}
+                    className="flex-1 rounded-lg bg-primary-600 py-2.5 font-semibold text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {isChangingPassword ? "Saving..." : "Save Password"}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}
