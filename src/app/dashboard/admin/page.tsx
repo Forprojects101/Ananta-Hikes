@@ -33,7 +33,7 @@ import TestimonialsManagement from "@/components/admin/sections/TestimonialsMana
 import { useAuth } from "@/context/AuthContext";
 import Modal from "@/components/admin/sections/Modal";
 
-type AdminSection = "dashboard" | "users" | "mountains" | "bookings" | "ads" | "gallery" | "testimonials" | "settings";
+type AdminSection = "dashboard" | "users" | "mountains" | "bookings" | "ads" | "gallery" | "testimonials";
 
 export default function AdminLayout() {
   return (
@@ -49,7 +49,7 @@ function AdminDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false); // Default closed on mobile, open controlled by MD breakpoint
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -76,7 +76,6 @@ function AdminDashboard() {
     { id: "gallery", label: "Gallery", icon: ImageIcon },
     { id: "testimonials", label: "Reviews", icon: MessageSquare },
     { id: "ads", label: "Marketing", icon: Megaphone },
-    { id: "settings", label: "Core Logic", icon: Settings },
   ] as const;
 
   const renderSection = () => {
@@ -88,7 +87,6 @@ function AdminDashboard() {
       case "gallery": return <GroupPhotosManagement />;
       case "testimonials": return <TestimonialsManagement />;
       case "ads": return <AdsManagement />;
-      case "settings": return <SystemSettings />;
       default: return <DashboardHome />;
     }
   };
@@ -121,48 +119,67 @@ function AdminDashboard() {
         </div>
 
         {/* Navigation Links */}
-        <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-1 custom-scrollbar">
-           {navItems.map((item) => {
-             const Icon = item.icon;
-             const isActive = activeSection === item.id;
-             return (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    setActiveSection(item.id);
-                    setSidebarOpen(false);
-                  }}
-                  className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl font-medium transition-all duration-200 group ${
-                    isActive 
-                      ? "bg-primary-500 text-white shadow-md shadow-primary-500/20" 
-                      : "text-slate-400 hover:text-slate-100 hover:bg-white/5"
-                  }`}
-                >
-                  <div className="flex items-center gap-3.5">
-                    <Icon size={18} className={isActive ? "text-white" : "text-slate-500 group-hover:text-slate-300 transition-colors"} />
-                    <span className={`text-sm tracking-wide ${isActive ? "font-bold" : "font-medium"}`}>{item.label}</span>
-                  </div>
-                  {isActive && <ChevronRight size={14} className="opacity-70 animate-in fade-in slide-in-from-left-2" />}
-                </button>
-             );
-           })}
+        <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-2 custom-scrollbar">
+           {authLoading ? (
+             Array.from({ length: 6 }).map((_, i) => (
+               <div key={i} className="w-full h-12 bg-white/5 rounded-xl animate-pulse flex items-center px-4 gap-3.5">
+                 <div className="w-5 h-5 bg-white/5 rounded-lg" />
+                 <div className="h-3 bg-white/5 rounded-full w-24" />
+               </div>
+             ))
+           ) : (
+             navItems.map((item) => {
+               const Icon = item.icon;
+               const isActive = activeSection === item.id;
+               return (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      setActiveSection(item.id);
+                      setSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl font-medium transition-all duration-200 group ${
+                      isActive 
+                        ? "bg-primary-500 text-white shadow-md shadow-primary-500/20" 
+                        : "text-slate-400 hover:text-slate-100 hover:bg-white/5"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <Icon size={18} className={isActive ? "text-white" : "text-slate-500 group-hover:text-slate-300 transition-colors"} />
+                      <span className={`text-sm tracking-wide ${isActive ? "font-bold" : "font-medium"}`}>{item.label}</span>
+                    </div>
+                    {isActive && <ChevronRight size={14} className="opacity-70 animate-in fade-in slide-in-from-left-2" />}
+                  </button>
+               );
+             })
+           )}
         </nav>
 
         {/* User Profile & Logout */}
         <div className="p-4 border-t border-white/5 bg-[#0F172A]/50 shrink-0">
-           <div className="flex items-center gap-3 px-4 py-3 bg-white/5 rounded-xl border border-white/5 mb-3">
-              <div className="w-10 h-10 rounded-lg overflow-hidden bg-primary-900/50 flex items-center justify-center border border-white/10 shrink-0">
-                {user?.profileImageUrl ? (
-                   <img src={user.profileImageUrl} alt="Profile" className="w-full h-full object-cover" />
-                 ) : (
-                   <User size={18} className="text-primary-400" />
-                 )}
-              </div>
-              <div className="flex-1 min-w-0 flex flex-col justify-center">
-                 <span className="text-sm font-semibold text-white truncate leading-tight">{user?.fullName || "Administrator"}</span>
-                 <span className="text-[10px] font-medium text-emerald-400 flex items-center gap-1.5 mt-0.5"><div className="w-1.5 h-1.5 rounded-full bg-emerald-400"></div> Online</span>
-              </div>
-           </div>
+           {authLoading ? (
+             <div className="flex items-center gap-3 px-4 py-3 bg-white/5 rounded-xl border border-white/5 mb-3 animate-pulse">
+               <div className="w-10 h-10 rounded-lg bg-white/5 shrink-0" />
+               <div className="flex-1 space-y-2">
+                 <div className="h-3 bg-white/5 rounded-full w-20" />
+                 <div className="h-2 bg-white/5 rounded-full w-12" />
+               </div>
+             </div>
+           ) : (
+             <div className="flex items-center gap-3 px-4 py-3 bg-white/5 rounded-xl border border-white/5 mb-3">
+                <div className="w-10 h-10 rounded-lg overflow-hidden bg-primary-900/50 flex items-center justify-center border border-white/10 shrink-0">
+                  {user?.profileImageUrl ? (
+                     <img src={user.profileImageUrl} alt="Profile" className="w-full h-full object-cover" />
+                   ) : (
+                     <User size={18} className="text-primary-400" />
+                   )}
+                </div>
+                <div className="flex-1 min-w-0 flex flex-col justify-center">
+                   <span className="text-sm font-semibold text-white truncate leading-tight">{user?.fullName || "Administrator"}</span>
+                   <span className="text-[10px] font-medium text-emerald-400 flex items-center gap-1.5 mt-0.5"><div className="w-1.5 h-1.5 rounded-full bg-emerald-400"></div> Online</span>
+                </div>
+             </div>
+           )}
            <button
              onClick={() => setShowLogoutConfirm(true)}
              className="w-full flex items-center justify-center gap-2 px-4 py-3 text-xs font-bold uppercase tracking-widest text-rose-400 hover:text-white hover:bg-rose-500 rounded-xl transition-all duration-200"
