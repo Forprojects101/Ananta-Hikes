@@ -20,6 +20,8 @@ import {
 } from "lucide-react";
 import Cropper from "react-easy-crop";
 import { useDataSync } from "@/context/DataSyncContext";
+import { useAuth } from "@/context/AuthContext";
+import { apiRequest } from "@/lib/api-client";
 import {
   useMountainManagement,
   Mountain,
@@ -72,6 +74,18 @@ const CropperWidget = ({ image, crop, zoom, aspect, onCropChange, onZoomChange, 
 
 export default function MountainManagement() {
   const { triggerSync } = useDataSync();
+  const { accessToken, logout, setAccessToken } = useAuth();
+
+  // Helper for authenticated requests
+  const authFetch = React.useCallback((url: string, options: any = {}) => {
+    return apiRequest(url, {
+      ...options,
+      accessToken,
+      onTokenRefresh: (newToken) => setAccessToken(newToken),
+      onLogout: () => logout(),
+      credentials: "include"
+    });
+  }, [accessToken, logout, setAccessToken]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "hidden">("all");
   const [mountains, setMountains] = useState<MountainRow[]>([]);
@@ -262,7 +276,7 @@ export default function MountainManagement() {
 
 
   const loadMountains = async () => {
-    const response = await fetch("/api/admin/mountains-list", { cache: "no-store", credentials: "include" });
+    const response = await authFetch("/api/admin/mountains-list", { cache: "no-store" });
     if (!response.ok) return;
     const payload = await response.json();
     const normalizedMountains = (payload?.mountains || []).map((m: any) => ({
@@ -280,9 +294,11 @@ export default function MountainManagement() {
 
 
   useEffect(() => {
-    loadMountains();
-    loadHikeTypesAndAddOns();
-  }, []);
+    if (accessToken) {
+      loadMountains();
+      loadHikeTypesAndAddOns();
+    }
+  }, [accessToken]);
 
   // Lock body scroll when any major modal is open
   useEffect(() => {
@@ -298,8 +314,8 @@ export default function MountainManagement() {
   const loadHikeTypesAndAddOns = async () => {
     try {
       const [hikeRes, addOnsRes] = await Promise.all([
-        fetch("/api/hike-types", { cache: "no-store" }),
-        fetch("/api/add-ons", { cache: "no-store" })
+        authFetch("/api/hike-types", { cache: "no-store" }),
+        authFetch("/api/add-ons", { cache: "no-store" })
       ]);
 
       if (hikeRes.ok) {
@@ -328,10 +344,9 @@ export default function MountainManagement() {
 
     setIsCreatingHikeType(true);
     try {
-      const response = await fetch("/api/admin/hike-types", {
+      const response = await authFetch("/api/admin/hike-types", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({
           mountain_id: editingMountain.id,
           name: newHikeTypeForm.name.trim(),
@@ -399,10 +414,9 @@ export default function MountainManagement() {
 
     setIsCreatingAddOn(true);
     try {
-      const response = await fetch("/api/admin/add-ons", {
+      const response = await authFetch("/api/admin/add-ons", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({
           mountain_id: editingMountain.id,
           name: newAddOnForm.name.trim(),
@@ -470,8 +484,18 @@ export default function MountainManagement() {
     if (addCroppedBlob) {
       try {
         const croppedFile = new File([addCroppedBlob], "mountain.jpg", { type: "image/jpeg" });
-        const { url } = await uploadAvatarToCloudinary(croppedFile, "mountain");
-        imageUrl = url;
+        const formData = new FormData();
+        formData.append("file", croppedFile);
+        
+        const uploadRes = await authFetch("/api/admin/gallery-upload", {
+          method: "POST",
+          body: formData
+        });
+        
+        if (!uploadRes.ok) throw new Error("Upload failed");
+        
+        const uploadData = await uploadRes.json();
+        imageUrl = uploadData.url;
       } catch (err) {
         setNotice("Failed to upload image. Please try again.");
         setIsAddingMountain(false);
@@ -492,10 +516,9 @@ export default function MountainManagement() {
     };
 
     try {
-      const response = await fetch("/api/admin/mountains", {
+      const response = await authFetch("/api/admin/mountains", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify(requestPayload),
       });
 
@@ -541,8 +564,8 @@ export default function MountainManagement() {
       let addOns: any[] = [];
 
       const [hikeRes, addOnsRes] = await Promise.all([
-        fetch(`/api/hike-types?mountain_id=${mountain.id}`, { cache: "no-store" }),
-        fetch(`/api/add-ons?mountain_id=${mountain.id}`, { cache: "no-store" }),
+        authFetch(`/api/hike-types?mountain_id=${mountain.id}`, { cache: "no-store" }),
+        authFetch(`/api/add-ons?mountain_id=${mountain.id}`, { cache: "no-store" }),
       ]);
 
       if (hikeRes.ok) {
@@ -579,19 +602,19 @@ export default function MountainManagement() {
       // Upload new image if selected
       if (editCroppedBlob) {
         const formData = new FormData();
-        formData.append("file", editCroppedBlob);
-        formData.append("upload_preset", "ml_default");
+        const croppedFile = new File([editCroppedBlob], "mountain.jpg", { type: "image/jpeg" });
+        formData.append("file", croppedFile);
 
-        const uploadRes = await fetch(
-          `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`,
-          { method: "POST", body: formData }
-        );
+        const uploadRes = await authFetch("/api/admin/gallery-upload", { 
+          method: "POST", 
+          body: formData 
+        });
 
         if (uploadRes.ok) {
           const uploadData = await uploadRes.json();
-          finalImageUrl = uploadData.secure_url;
+          finalImageUrl = uploadData.url;
         } else {
-          console.error("❌ [EditMountain] Cloudinary upload failed");
+          console.error("❌ [EditMountain] Gallery upload failed");
         }
       }
 
@@ -609,10 +632,9 @@ export default function MountainManagement() {
         addOns: selectedAddOns,
       };
 
-      const response = await fetch(`/api/admin/mountains/${editingMountain.id}`, {
+      const response = await authFetch(`/api/admin/mountains/${editingMountain.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify(requestPayload),
       });
 
@@ -655,10 +677,9 @@ export default function MountainManagement() {
 
     setIsDeletingMountain(true);
 
-    const response = await fetch(`/api/admin/mountains/${deletingMountain.id}`, {
+    const response = await authFetch(`/api/admin/mountains/${deletingMountain.id}`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
-      credentials: "include",
     });
 
     if (!response.ok) {
@@ -685,10 +706,9 @@ export default function MountainManagement() {
 
   const submitDeleteMountain = async (mountainId: string) => {
     try {
-      const response = await fetch(`/api/admin/mountains/${mountainId}`, {
+      const response = await authFetch(`/api/admin/mountains/${mountainId}`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
       });
 
       if (!response.ok) {
@@ -721,9 +741,8 @@ export default function MountainManagement() {
 
     setIsDeletingHikeType(true);
     try {
-      const response = await fetch(`/api/hike-types/${hikeTypeToDelete.id}`, {
+      const response = await authFetch(`/api/hike-types/${hikeTypeToDelete.id}`, {
         method: "DELETE",
-        credentials: "include",
       });
 
       if (!response.ok) {
@@ -758,9 +777,8 @@ export default function MountainManagement() {
 
     setIsDeletingAddOn(true);
     try {
-      const response = await fetch(`/api/add-ons/${addOnToDelete.id}`, {
+      const response = await authFetch(`/api/add-ons/${addOnToDelete.id}`, {
         method: "DELETE",
-        credentials: "include",
       });
 
       if (!response.ok) {
@@ -790,10 +808,9 @@ export default function MountainManagement() {
 
     setIsEditingHikeType(true);
     try {
-      const response = await fetch(`/api/hike-types/${editingHikeType.id}`, {
+      const response = await authFetch(`/api/hike-types/${editingHikeType.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({
           name: editingHikeType.name.trim(),
           description: editingHikeType.description?.trim() || null,
@@ -830,10 +847,9 @@ export default function MountainManagement() {
 
     setIsEditingAddOn(true);
     try {
-      const response = await fetch(`/api/add-ons/${editingAddOn.id}`, {
+      const response = await authFetch(`/api/add-ons/${editingAddOn.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({
           name: editingAddOn.name.trim(),
           description: editingAddOn.description?.trim() || null,
@@ -1545,7 +1561,7 @@ export default function MountainManagement() {
                                           type="button"
                                           onClick={async () => {
                                             try {
-                                              const response = await fetch(`/api/hike-types/${hikeType.id}`);
+                                              const response = await authFetch(`/api/hike-types/${hikeType.id}`);
                                               const data = response.ok ? await response.json() : hikeType;
                                               setEditingHikeType({
                                                 id: data.id,
@@ -1647,7 +1663,7 @@ export default function MountainManagement() {
                                           type="button"
                                           onClick={async () => {
                                             try {
-                                              const response = await fetch(`/api/add-ons/${addOn.id}`);
+                                              const response = await authFetch(`/api/add-ons/${addOn.id}`);
                                               const data = response.ok ? await response.json() : addOn;
                                               setEditingAddOn({
                                                 id: data.id,
