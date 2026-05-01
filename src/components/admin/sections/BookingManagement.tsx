@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { Search, Eye, CheckCircle, XCircle, Calendar, Users as UsersIcon, MapPin, Tag, ArrowRight, Copy, Check, Play } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { apiRequest } from "@/lib/api-client";
 import Modal from "./Modal";
 
 type BookingRow = {
@@ -43,6 +45,17 @@ const formatPeso = (value: number | string | null | undefined) => {
 };
 
 export default function BookingManagement() {
+  const { accessToken, logout, setAccessToken } = useAuth();
+
+  const authFetch = useCallback((url: string, options: any = {}) => {
+    return apiRequest(url, {
+      ...options,
+      accessToken,
+      onTokenRefresh: (newToken) => setAccessToken(newToken),
+      onLogout: () => logout(),
+    });
+  }, [accessToken, logout, setAccessToken]);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [bookings, setBookings] = useState<BookingRow[]>([]);
@@ -64,7 +77,7 @@ export default function BookingManagement() {
 
   const loadGuides = async () => {
     try {
-      const response = await fetch("/api/admin/dashboard-data", { cache: "no-store" });
+      const response = await authFetch("/api/admin/dashboard-data", { cache: "no-store" });
       if (!response.ok) return;
       const payload = await response.json();
       const users = (payload?.users || []) as any[];
@@ -83,7 +96,7 @@ export default function BookingManagement() {
   };
 
   const loadBookings = async () => {
-    const response = await fetch("/api/admin/bookings-list", { cache: "no-store" });
+    const response = await authFetch("/api/admin/bookings-list", { cache: "no-store" });
     if (!response.ok) return;
     const payload = await response.json();
     const normalizedBookings = (payload?.bookings || []).map((b: any) => ({
@@ -95,12 +108,14 @@ export default function BookingManagement() {
   };
 
   useEffect(() => {
-    loadBookings();
-    loadGuides();
-  }, []);
+    if (accessToken) {
+      loadBookings();
+      loadGuides();
+    }
+  }, [accessToken, authFetch]);
 
   const updateBookingStatus = async (id: string, status: string, reason?: string, guideId?: string) => {
-    const response = await fetch(`/api/admin/bookings/${id}`, {
+    const response = await authFetch(`/api/admin/bookings/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status, reason, guide_id: guideId }),
@@ -117,7 +132,7 @@ export default function BookingManagement() {
   };
 
   const updateJoinerStatus = async (joinerId: string, status: string) => {
-    const response = await fetch(`/api/admin/joiners/${joinerId}`, {
+    const response = await authFetch(`/api/admin/joiners/${joinerId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
