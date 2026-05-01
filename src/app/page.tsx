@@ -1157,69 +1157,71 @@ function PromoPopup({
       <div className={`absolute inset-0 bg-slate-950/60 backdrop-blur-md transition-all duration-500 ${isAnimating ? 'opacity-100' : 'opacity-0'}`} onClick={onClose} />
 
       <div
-        className={`relative w-full max-w-lg overflow-hidden rounded-[2.5rem] bg-white shadow-[0_32px_64px_-16px_rgba(0,0,0,0.3)] transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] transform ${isAnimating ? 'translate-y-0 scale-100' : 'translate-y-12 scale-95'}`}
+        className={`relative w-full max-w-[420px] overflow-hidden rounded-[2rem] bg-white shadow-2xl transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] transform ${isAnimating ? 'translate-y-0 scale-100' : 'translate-y-12 scale-95'}`}
       >
         <button
           onClick={onClose}
-          className="absolute right-6 top-6 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-slate-900/10 text-slate-900 backdrop-blur-md transition-all hover:bg-slate-900/20"
+          className="absolute right-4 top-4 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-md transition-all hover:bg-white/30 hover:scale-105"
         >
-          <X size={20} />
+          <X size={16} />
         </button>
 
-        <div className="grid md:grid-cols-2">
-          <div className="relative h-64 md:h-auto overflow-hidden">
-            {promotion.image_url ? (
-              <img src={promotion.image_url} alt={promotion.title} className="h-full w-full object-cover" />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary-600 to-emerald-700">
-                <Mountain size={64} className="text-white/20" />
-              </div>
-            )}
-            <div className="absolute inset-0 bg-gradient-to-t from-white/20 via-transparent to-transparent" />
-          </div>
-
-          <div className="p-8 md:p-10 flex flex-col justify-center">
-            <div className="inline-flex items-center gap-2 rounded-full bg-primary-50 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-primary-600 mb-6">
-              <Sparkles size={12} />
+        <div className="relative h-[220px] w-full overflow-hidden">
+          {promotion.image_url ? (
+            <img src={promotion.image_url} alt={promotion.title} className="h-full w-full object-cover transition-transform duration-1000 hover:scale-105" />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-slate-900">
+              <Mountain size={48} className="text-white/10" />
+            </div>
+          )}
+          {/* Gradient to smooth the transition between image and content */}
+          <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-black/40 pointer-events-none" />
+          
+          {/* Floating Badge */}
+          <div className="absolute bottom-4 left-6">
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-white/95 backdrop-blur-md px-3.5 py-1.5 text-[10px] font-black uppercase tracking-widest text-primary-600 shadow-sm">
+              <Sparkles size={12} className="animate-pulse" />
               <span>Special Offer</span>
             </div>
+          </div>
+        </div>
 
-            <h3 className="text-3xl font-black text-slate-950 leading-tight tracking-tight mb-4">
-              {promotion.title}
-            </h3>
+        <div className="px-8 pt-4 pb-8 flex flex-col">
+          <h3 className="text-2xl font-black text-slate-900 leading-tight tracking-tight mb-3">
+            {promotion.title}
+          </h3>
 
-            <p className="text-sm font-medium leading-relaxed text-slate-500 mb-8">
-              {promotion.description}
-            </p>
+          <p className="text-sm font-medium leading-relaxed text-slate-500 mb-8">
+            {promotion.description}
+          </p>
 
-            <div className="space-y-3">
-              {isAuthenticated ? (
-                <Link
-                  href={promotion.link_url || "/booking"}
-                  onClick={onClose}
-                  className="group flex w-full items-center justify-center gap-3 rounded-2xl bg-primary-600 py-4 text-sm font-black uppercase tracking-widest text-white shadow-xl shadow-primary-600/20 transition-all hover:bg-primary-500 hover:-translate-y-1 active:scale-95"
-                >
-                  Explore Now <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
-                </Link>
-              ) : (
-                <button
-                  onClick={() => {
-                    onClose();
-                    onLoginClick();
-                  }}
-                  className="group flex w-full items-center justify-center gap-3 rounded-2xl bg-primary-600 py-4 text-sm font-black uppercase tracking-widest text-white shadow-xl shadow-primary-600/20 transition-all hover:bg-primary-500 hover:-translate-y-1 active:scale-95"
-                >
-                  Explore Now <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
-                </button>
-              )}
-
-              <button
+          <div className="space-y-3">
+            {isAuthenticated ? (
+              <Link
+                href={promotion.link_url || "/booking"}
                 onClick={onClose}
-                className="w-full py-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-slate-600 transition-colors"
+                className="group flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 py-3.5 text-sm font-bold tracking-wide text-white transition-all hover:bg-slate-800 hover:-translate-y-0.5 active:scale-95 shadow-xl shadow-slate-900/20"
               >
-                No thanks, maybe later
+                Explore Now <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
+              </Link>
+            ) : (
+              <button
+                onClick={() => {
+                  onClose();
+                  onLoginClick();
+                }}
+                className="group flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 py-3.5 text-sm font-bold tracking-wide text-white transition-all hover:bg-slate-800 hover:-translate-y-0.5 active:scale-95 shadow-xl shadow-slate-900/20"
+              >
+                Explore Now <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
               </button>
-            </div>
+            )}
+
+            <button
+              onClick={onClose}
+              className="w-full py-2.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              No thanks, maybe later
+            </button>
           </div>
         </div>
       </div>
