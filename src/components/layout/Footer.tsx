@@ -2,7 +2,22 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Mail, Phone, Camera, Bird, ArrowRight } from "lucide-react";
-import { FaFacebookF as Facebook } from "react-icons/fa";
+
+const FacebookIcon = ({ size = 24 }: { size?: number }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
+  </svg>
+);
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
@@ -29,7 +44,7 @@ export function Footer() {
             </p>
             <div className="flex gap-4">
               {[
-                { icon: <Facebook size={18} />, href: "https://www.facebook.com/janmeldoneza09" },
+                { icon: <FacebookIcon size={18} />, href: "https://www.facebook.com/janmeldoneza09" },
               ].map((social, i) => (
                 <a
                   key={i}
