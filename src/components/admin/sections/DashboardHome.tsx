@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { BarChart3, Users, Mountain, BookOpen, Clock, ArrowUpRight, Activity as ActivityIcon } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { apiRequest } from "@/lib/api-client";
 
 type DashboardStat = {
   label: string;
@@ -29,6 +31,17 @@ const toRelativeTime = (dateString: string) => {
 };
 
 export default function DashboardHome() {
+  const { accessToken, logout, setAccessToken } = useAuth();
+
+  const authFetch = useCallback((url: string, options: any = {}) => {
+    return apiRequest(url, {
+      ...options,
+      accessToken,
+      onTokenRefresh: (newToken) => setAccessToken(newToken),
+      onLogout: () => logout(),
+    });
+  }, [accessToken, logout, setAccessToken]);
+
   const [stats, setStats] = useState<DashboardStat[]>([
     {
       label: "Total Users",
@@ -67,7 +80,7 @@ export default function DashboardHome() {
     const loadDashboard = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch("/api/admin/dashboard-data", {
+        const response = await authFetch("/api/admin/dashboard-data", {
           cache: "no-store",
         });
 
@@ -125,8 +138,10 @@ export default function DashboardHome() {
       }
     };
 
-    loadDashboard();
-  }, []);
+    if (accessToken) {
+      loadDashboard();
+    }
+  }, [accessToken, authFetch]);
 
   const colorStyles = {
     blue: { bg: "bg-blue-500/10", icon: "text-blue-600", border: "border-blue-100", accent: "bg-blue-500" },
