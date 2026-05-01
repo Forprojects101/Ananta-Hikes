@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { jwtVerify } from "jose";
+
+const JWT_SECRET = new TextEncoder().encode(
+  process.env.NEXTAUTH_SECRET || "fallback-secret-change-me"
+);
 
 function getSupabaseServerClient() {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -8,18 +13,25 @@ function getSupabaseServerClient() {
 }
 
 async function ensureAdmin(request: NextRequest, supabase: any) {
-  const token = request.cookies.get("auth-token")?.value || request.cookies.get("verified-token")?.value;
-  if (!token) return false;
+  try {
+    const authHeader = request.headers.get("Authorization");
+    const accessToken = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : null;
+    
+    if (!accessToken) {
+      console.warn("⚠️ [ensureAdmin] No access token found in headers");
+      return { isAdmin: false, userId: null };
+    }
 
-  const { data: user } = await supabase
-    .from("users")
-    .select("roles(name)")
-    .eq("id", token)
-    .maybeSingle();
-
-  const rolesData = (user as any)?.roles as { name?: string } | { name?: string } | undefined;
-  const roleName = Array.isArray(rolesData) ? (rolesData as any)[0]?.name : (rolesData as any)?.name;
-  return roleName === "Admin" || roleName === "Super Admin";
+    const { payload } = await jwtVerify(accessToken, JWT_SECRET);
+    const roleName = payload.role as string;
+    const userId = payload.userId as string;
+    
+    const isAdmin = roleName === "Admin" || roleName === "Super Admin";
+    return { isAdmin, userId };
+  } catch (err) {
+    console.warn("⚠️ [ensureAdmin] Token verification failed:", err);
+    return { isAdmin: false, userId: null };
+  }
 }
 
 export async function GET(request: NextRequest) {
@@ -43,12 +55,12 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = getSupabaseServerClient();
-    if (!(await ensureAdmin(request, supabase))) {
+    const { isAdmin, userId } = await ensureAdmin(request, supabase);
+    if (!isAdmin) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
     }
 
     const body = await request.json();
-    const token = request.cookies.get("auth-token")?.value || request.cookies.get("verified-token")?.value;
 
     const { data, error } = await supabase
       .from("group_photos")
@@ -61,7 +73,7 @@ export async function POST(request: NextRequest) {
           photo_date: body.photo_date || null,
           group_type: body.group_type || null,
           mountain_id: body.mountain_id || null,
-          created_by: token,
+          created_by: userId,
           is_featured: body.is_featured || false,
           is_active: body.is_active !== false,
         },
@@ -80,7 +92,8 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const supabase = getSupabaseServerClient();
-    if (!(await ensureAdmin(request, supabase))) {
+    const { isAdmin } = await ensureAdmin(request, supabase);
+    if (!isAdmin) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
     }
 
@@ -116,7 +129,8 @@ export async function PUT(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const supabase = getSupabaseServerClient();
-    if (!(await ensureAdmin(request, supabase))) {
+    const { isAdmin } = await ensureAdmin(request, supabase);
+    if (!isAdmin) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
     }
 
