@@ -1,8 +1,10 @@
 "use client";
 
 import { useBooking } from "@/context/BookingContext";
+import { useAuth } from "@/context/AuthContext";
+import { apiRequest } from "@/lib/api-client";
 import { ArrowLeft, ArrowRight, Loader } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 type HikeTypeData = {
   id: string;
@@ -16,6 +18,16 @@ type HikeTypeData = {
 
 export default function HikeTypeSelection() {
   const { package: bookingPackage, updatePackage, setCurrentStep } = useBooking();
+  const { accessToken, logout, setAccessToken } = useAuth();
+
+  const authFetch = useCallback((url: string, options: any = {}) => {
+    return apiRequest(url, {
+      ...options,
+      accessToken,
+      onTokenRefresh: (newToken) => setAccessToken(newToken),
+      onLogout: () => logout(),
+    });
+  }, [accessToken, logout, setAccessToken]);
   const [hikeTypes, setHikeTypes] = useState<HikeTypeData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +38,7 @@ export default function HikeTypeSelection() {
       try {
         setLoading(true);
         // Filter hike types by selected mountain
-        const response = await fetch(
+        const response = await authFetch(
           `/api/hike-types?mountain_id=${bookingPackage.mountainId}`,
           { cache: "no-store" }
         );
