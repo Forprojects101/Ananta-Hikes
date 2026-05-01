@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
+import { motion, AnimatePresence } from "framer-motion";
+import { ShieldCheck, AlertCircle, Loader2 } from "lucide-react";
 
 // Role to dashboard mapping — update here if new roles are added
 const ROLE_DASHBOARD: Record<string, string> = {
@@ -14,11 +16,28 @@ const ROLE_DASHBOARD: Record<string, string> = {
   "Super Admin": "/dashboard/super-admin",
 };
 
+const LOADING_MESSAGES = [
+  "Authenticating with Google...",
+  "Securing your session...",
+  "Retrieving your profile...",
+  "Preparing your workspace...",
+];
+
 function GoogleCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { setAuthData } = useAuth();
   const [error, setError] = useState<string | null>(null);
+  const [messageIndex, setMessageIndex] = useState(0);
+
+  // Cycle through loading messages
+  useEffect(() => {
+    if (error) return;
+    const interval = setInterval(() => {
+      setMessageIndex((prev) => (prev + 1) % LOADING_MESSAGES.length);
+    }, 2500);
+    return () => clearInterval(interval);
+  }, [error]);
 
   useEffect(() => {
     const finishGoogleLogin = async () => {
@@ -88,51 +107,114 @@ function GoogleCallbackContent() {
   }, [router, searchParams, setAuthData]);
 
   return (
-    <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl text-center">
+    <motion.div 
+      initial={{ opacity: 0, scale: 0.95, y: 10 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
+      className="w-full max-w-md rounded-3xl bg-white/80 backdrop-blur-xl border border-white/40 p-10 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)] text-center relative overflow-hidden"
+    >
+      {/* Decorative gradient orb */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 bg-primary-400/20 rounded-full blur-3xl pointer-events-none" />
+
       {!error ? (
-        <>
-          <div className="flex justify-center mb-4">
-            <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary-200 border-t-primary-600" />
+        <div className="flex flex-col items-center relative z-10">
+          <div className="relative mb-8">
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+              className="absolute inset-0 rounded-full border-[3px] border-dashed border-primary-200/50"
+            />
+            <motion.div
+              animate={{ rotate: -360 }}
+              transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
+              className="absolute inset-[-8px] rounded-full border-[2px] border-dotted border-primary-300/30"
+            />
+            <div className="h-20 w-20 bg-primary-50 rounded-full flex items-center justify-center shadow-inner relative z-10">
+              <ShieldCheck className="w-10 h-10 text-primary-600" />
+            </div>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Signing you in...</h1>
-          <p className="text-gray-500 text-sm">Completing your Google login. Please wait.</p>
-        </>
+          
+          <h1 className="text-2xl font-bold text-gray-900 mb-3 tracking-tight">Authenticating</h1>
+          
+          <div className="h-6 relative w-full flex justify-center items-center overflow-hidden">
+            <AnimatePresence mode="wait">
+              <motion.p
+                key={messageIndex}
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15 }}
+                transition={{ duration: 0.3 }}
+                className="text-gray-500 text-sm absolute font-medium"
+              >
+                {LOADING_MESSAGES[messageIndex]}
+              </motion.p>
+            </AnimatePresence>
+          </div>
+          
+          <div className="mt-8 w-48 h-1 bg-gray-100 rounded-full overflow-hidden">
+            <motion.div 
+              className="h-full bg-primary-500 rounded-full"
+              initial={{ width: "0%", x: "-100%" }}
+              animate={{ 
+                width: ["0%", "50%", "100%", "50%", "0%"],
+                x: ["-100%", "0%", "100%", "0%", "-100%"]
+              }}
+              transition={{ 
+                duration: 2, 
+                repeat: Infinity, 
+                ease: "easeInOut" 
+              }}
+            />
+          </div>
+        </div>
       ) : (
-        <>
-          <div className="flex justify-center mb-4 text-red-500">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10" />
-              <line x1="12" y1="8" x2="12" y2="12" />
-              <line x1="12" y1="16" x2="12.01" y2="16" />
-            </svg>
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Login Failed</h1>
-          <p className="text-red-600 mb-6 text-sm">{error}</p>
+        <div className="flex flex-col items-center relative z-10">
+          <motion.div 
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: "spring", bounce: 0.5 }}
+            className="flex justify-center mb-6"
+          >
+            <div className="h-20 w-20 bg-red-50 rounded-full flex items-center justify-center shadow-inner">
+              <AlertCircle className="w-10 h-10 text-red-500" />
+            </div>
+          </motion.div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-3 tracking-tight">Login Failed</h1>
+          <p className="text-red-600 mb-8 text-sm font-medium px-4">{error}</p>
           <Link
             href="/"
-            className="inline-flex items-center justify-center px-6 py-2.5 rounded-xl bg-primary-600 text-white font-semibold hover:bg-primary-700 transition"
+            className="inline-flex items-center justify-center w-full px-6 py-3.5 rounded-xl bg-gray-900 text-white font-semibold hover:bg-gray-800 transition-all active:scale-[0.98] shadow-md shadow-gray-900/20"
           >
-            Back to Home
+            Return to Home
           </Link>
-        </>
+        </div>
       )}
-    </div>
+    </motion.div>
   );
 }
 
 export default function GoogleCallbackPage() {
   return (
-    <main className="min-h-screen bg-gradient-to-br from-primary-50 to-white flex items-center justify-center p-4">
-      <Suspense fallback={
-        <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl text-center">
-          <div className="flex justify-center mb-4">
-            <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary-200 border-t-primary-600" />
+    <main className="min-h-screen bg-[#fafafa] flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Background decorations */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-primary-100/40 blur-[100px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-blue-100/40 blur-[100px]" />
+      </div>
+
+      <div className="relative z-10 w-full flex justify-center">
+        <Suspense fallback={
+          <div className="w-full max-w-md rounded-3xl bg-white/80 backdrop-blur-xl border border-white/40 p-10 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)] text-center flex flex-col items-center">
+            <div className="h-20 w-20 mb-8 flex items-center justify-center">
+              <Loader2 className="w-10 h-10 text-primary-500 animate-spin" />
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-3 tracking-tight">Loading</h1>
+            <p className="text-gray-500 text-sm font-medium">Please wait a moment...</p>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Loading...</h1>
-        </div>
-      }>
-        <GoogleCallbackContent />
-      </Suspense>
+        }>
+          <GoogleCallbackContent />
+        </Suspense>
+      </div>
     </main>
   );
 }
