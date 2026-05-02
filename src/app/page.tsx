@@ -48,7 +48,7 @@ type MountainCard = {
   difficulty: "Beginner" | "Intermediate" | "Advanced";
   elevation: string;
   duration?: string;
-  maxParticipants: number;
+  inclusions?: string;
   price: string;
   accent: string;
   marker: string;
@@ -129,6 +129,7 @@ type LandingApiResponse = {
     elevation_meters: number | null;
     duration_hours?: number | null;
     max_participants: number | null;
+    inclusions?: string | null;
     image_url: string | null;
     price: number;
   }>;
@@ -193,7 +194,7 @@ const mapDbMountainToCard = (mountain: LandingApiResponse["mountains"][number]):
     duration: mountain.duration_hours
       ? `${mountain.duration_hours}h`
       : undefined,
-    maxParticipants: mountain.max_participants || 30,
+    inclusions: Array.isArray(mountain.inclusions) ? mountain.inclusions.join(", ") : (mountain.inclusions || undefined),
     price: mountain.price ? `₱${mountain.price.toLocaleString("en-PH")}` : "Price TBD",
     accent: accentByDifficulty[difficulty] || "from-primary-500 to-emerald-500",
     marker,
@@ -444,8 +445,10 @@ function HeroSection({
           fill
           priority
           sizes="100vw"
-          className="object-cover object-[30%_74%] md:object-[34%_78%] lg:object-[38%_82%] scale-x-[-1]"
+          className="object-cover object-[30%_74%] md:object-[34%_78%] lg:object-[38%_82%] scale-x-[-1] brightness-[0.85] saturate-[1.05]"
         />
+        <div className="absolute inset-0 bg-slate-900/15 mix-blend-multiply" />
+        <div className="absolute inset-0 bg-gradient-to-t from-white/30 via-transparent to-black/20" />
 
         <div className="pointer-events-none absolute -bottom-1 -left-3 -right-3 z-[1] h-20 overflow-hidden md:hidden">
           <Image
@@ -558,15 +561,15 @@ function MountainsSection({
 
 
   const MountainItem = ({ mountain }: { mountain: MountainCard }) => (
-    <div className="group/mountain w-full flex-shrink-0 overflow-hidden rounded-[2.5rem] bg-white shadow-sm ring-1 ring-slate-200 transition-all duration-500 hover:shadow-2xl hover:shadow-slate-200 hover:-translate-y-2 relative z-0 flex flex-col">
+    <div className="h-full group/mountain w-full flex-shrink-0 overflow-hidden rounded-[2.5rem] bg-white shadow-sm ring-1 ring-slate-200 transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] hover:shadow-xl hover:shadow-slate-200/50 hover:-translate-y-1 relative z-0 flex flex-col">
       {mountain.image ? (
-        <div className="relative h-56 md:h-64 overflow-hidden">
+        <div className="relative aspect-[5/2] w-full overflow-hidden">
           <Image
             src={mountain.image}
             alt={mountain.name}
             fill
             unoptimized={mountain.image.startsWith("http")}
-            className="object-cover transition-transform duration-1000 group-hover/mountain:scale-110"
+            className="object-cover transition-transform duration-700 ease-[cubic-bezier(0.25,1,0.5,1)] group-hover/mountain:scale-105"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent" />
           <div className="absolute top-4 right-4">
@@ -574,14 +577,9 @@ function MountainsSection({
               {mountain.difficulty}
             </span>
           </div>
-          <div className="absolute bottom-4 left-6">
-            <span className="inline-flex rounded-lg bg-primary-600 px-3 py-1 text-[10px] font-black tracking-[0.25em] text-white uppercase shadow-lg">
-              {mountain.marker}
-            </span>
-          </div>
         </div>
       ) : (
-        <div className={`flex h-56 md:h-64 items-center justify-center bg-gradient-to-br ${mountain.accent} relative`}>
+        <div className={`flex aspect-[5/2] w-full items-center justify-center bg-gradient-to-br ${mountain.accent} relative`}>
           <span className="rounded-2xl bg-white/20 px-6 py-4 text-2xl font-black tracking-[0.25em] text-white backdrop-blur-md border border-white/20">
             {mountain.marker}
           </span>
@@ -595,21 +593,26 @@ function MountainsSection({
 
       <div className="p-6 md:p-8 flex-1 flex flex-col">
         <div className="mb-6">
-          <h3 className="text-2xl font-black text-slate-900 tracking-tight group-hover/mountain:text-primary-700 transition-colors">{mountain.name}</h3>
-          <div className="mt-2 flex items-center gap-2 text-sm font-semibold text-slate-500">
-            <MapPin size={16} className="text-primary-500" />
-            {mountain.location}
+          <h3 className="text-2xl font-black text-slate-900 tracking-tight group-hover/mountain:text-primary-700 transition-colors line-clamp-1" title={mountain.name}>{mountain.name}</h3>
+          <div className="mt-2 flex items-start gap-2 text-sm font-semibold text-slate-500 h-10">
+            <MapPin size={16} className="text-primary-500 flex-shrink-0 mt-0.5" />
+            <span className="line-clamp-2" title={mountain.location}>{mountain.location}</span>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 mb-8">
-          <div className="rounded-2xl bg-slate-50 p-4 border border-slate-100">
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Elevation</p>
-            <p className="text-sm font-bold text-slate-900">{mountain.elevation}</p>
-          </div>
-          <div className="rounded-2xl bg-slate-50 p-4 border border-slate-100">
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Capacity</p>
-            <p className="text-sm font-bold text-slate-900">{mountain.maxParticipants} Hikers</p>
+        <div className="mb-8">
+          <div className="rounded-3xl bg-slate-50/50 p-6 border border-slate-100 flex flex-col min-h-[140px]">
+            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-4">Inclusions</p>
+            <div className="space-y-3 overflow-y-auto max-h-[150px] pr-2 custom-scrollbar">
+              {(mountain.inclusions || "Standard Hike Package").split(/[,;]|\n/).filter(i => i.trim()).map((item, idx) => (
+                <div key={idx} className="flex items-center gap-3">
+                  <div className="h-1.5 w-1.5 rounded-full bg-primary-500 shrink-0 shadow-sm shadow-primary-500/40" />
+                  <span className="text-xs font-bold text-slate-800 tracking-tight">
+                    {item.trim()}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -639,7 +642,7 @@ function MountainsSection({
     <section id="mountains" className="scroll-mt-28 bg-white py-24 md:py-32 overflow-hidden">
       <div className="container px-4 mb-20">
         <div className="mx-auto max-w-3xl text-center">
-          <p className="mb-4 text-xs md:text-sm font-black uppercase tracking-[0.3em] text-primary-600">Legendary Peaks</p>
+          <p className="mb-4 text-xs md:text-sm font-black uppercase tracking-[0.3em] text-primary-600">Signature Peaks</p>
           <h2 className="text-3xl md:text-5xl lg:text-6xl font-black text-gray-900 leading-[1.1]">{heading}</h2>
           <p className="mt-6 text-sm md:text-lg text-gray-600 font-medium">
             Discover the most breathtaking trails in the Philippines. Pick your peak and begin your journey.
@@ -683,10 +686,10 @@ function MountainsSection({
                   slidesPerView: 4,
                 },
               }}
-              className={`!pb-16 ${mountains.length >= 5 ? "swiper-linear" : ""}`}
+              className={`!pt-8 !pb-16 ${mountains.length >= 5 ? "swiper-linear" : ""}`}
             >
               {mountains.map((m, i) => (
-                <SwiperSlide key={m.id || i}>
+                <SwiperSlide key={m.id || i} className="h-auto">
                   <MountainItem mountain={m} />
                 </SwiperSlide>
               ))}
@@ -790,6 +793,18 @@ function GroupPhotosSection({ featuredPhoto }: { featuredPhoto: GroupHikePhoto |
     return () => observer.disconnect();
   }, []);
 
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (expandedPhoto) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [expandedPhoto]);
+
   return (
     <section ref={sectionRef} className="bg-white py-24 md:py-32">
       <div className="container mx-auto px-4 md:px-6">
@@ -879,8 +894,8 @@ function GroupPhotosSection({ featuredPhoto }: { featuredPhoto: GroupHikePhoto |
         )}
 
         {expandedPhoto && (
-          <div className="fixed inset-0 z-[120] flex items-center justify-center p-2 md:p-8 lg:p-12 animate-in fade-in duration-500" onClick={() => setExpandedPhoto(null)}>
-            <div className="absolute inset-0 bg-slate-950/55 backdrop-blur-sm" />
+          <div className="fixed inset-0 h-[100dvh] z-[120] flex items-center justify-center p-2 md:p-8 lg:p-12 animate-in fade-in duration-500" onClick={() => setExpandedPhoto(null)}>
+            <div className="absolute inset-[-10%] bg-slate-950/65 backdrop-blur-md" />
 
             <div
               className="relative w-full max-w-5xl max-h-[85vh] lg:max-h-[80vh] overflow-hidden rounded-[2rem] md:rounded-[2.5rem] bg-white shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] animate-in zoom-in-95 duration-500"
@@ -1155,9 +1170,11 @@ function PromoPopup({
   useEffect(() => {
     if (isOpen) {
       setShouldRender(true);
+      document.body.style.overflow = "hidden";
       setTimeout(() => setIsAnimating(true), 10);
     } else {
       setIsAnimating(false);
+      document.body.style.overflow = "";
       const timer = setTimeout(() => setShouldRender(false), 500);
       return () => clearTimeout(timer);
     }
@@ -1166,8 +1183,8 @@ function PromoPopup({
   if (!shouldRender || !promotion) return null;
 
   return (
-    <div className={`fixed inset-0 z-[100] flex items-center justify-center p-4 transition-all duration-500 ease-out ${isAnimating ? 'opacity-100' : 'opacity-0'}`}>
-      <div className={`absolute inset-0 bg-slate-950/60 backdrop-blur-md transition-all duration-500 ${isAnimating ? 'opacity-100' : 'opacity-0'}`} onClick={onClose} />
+    <div className={`fixed inset-0 h-[100dvh] z-[100] flex items-center justify-center p-4 transition-all duration-500 ease-out ${isAnimating ? 'opacity-100' : 'opacity-0'}`}>
+      <div className={`absolute inset-[-10%] bg-slate-950/60 backdrop-blur-md transition-all duration-500 ${isAnimating ? 'opacity-100' : 'opacity-0'}`} onClick={onClose} />
 
       <div
         className={`relative w-full max-w-[420px] overflow-hidden rounded-[2rem] bg-white shadow-2xl transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] transform ${isAnimating ? 'translate-y-0 scale-100' : 'translate-y-12 scale-95'}`}
